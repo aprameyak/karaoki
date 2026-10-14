@@ -80,15 +80,14 @@ describe("planFromRow", () => {
 
   it("converts database rows", () => {
     const plan = planFromRow({
-      id: "pro",
-      name: "Pro",
-      price_cents: 699,
-      monthly_jobs: 100,
-      max_storage_bytes: 21474836480,
-      max_file_bytes: 209715200,
-      max_duration_seconds: 1200,
+      id: "free",
+      name: "Free",
+      monthly_jobs: 3,
+      max_storage_bytes: 524288000,
+      max_file_bytes: 52428800,
+      max_duration_seconds: 600,
     });
-    expect(plan).toMatchObject({ id: "pro", monthlyJobs: 100, maxFileBytes: 209715200 });
+    expect(plan).toMatchObject({ id: "free", monthlyJobs: 3, maxFileBytes: 52428800 });
   });
 });
 

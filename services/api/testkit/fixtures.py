@@ -141,7 +141,7 @@ def clean_state(database, redis_server):
         conn.execute("truncate auth.users, public.audit_events, public.copyright_reports cascade")
         conn.execute("truncate public.plans cascade")
         for row in PLAN_ROWS:
-            conn.execute("insert into public.plans values (%s, %s, %s, %s, %s, %s, %s, %s)", row)
+            conn.execute(f"insert into public.plans values ({', '.join(['%s'] * len(row))})", row)
     Redis.from_url(redis_server).flushdb()
     yield
     db.close_pool()
@@ -171,14 +171,12 @@ def sql(database):
 
 @pytest.fixture
 def make_user(sql):
-    def create(plan: str = "free") -> str:
+    def create() -> str:
         user_id = str(uuid.uuid4())
         sql(
             "insert into auth.users (id, email) values (%s, %s)",
             (user_id, f"{user_id[:8]}@example.com"),
         )
-        if plan != "free":
-            sql("update public.profiles set plan_id = %s where id = %s", (plan, user_id))
         return user_id
 
     return create

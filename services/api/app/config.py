@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     web_origin: str = "http://localhost:3000"
     queue_name: str = "separation"
-    high_priority_queue_name: str = "separation-high"
     demucs_model: str = "htdemucs"
     temp_dir: str = "/tmp/karaoki"
     job_timeout_seconds: int = 3600

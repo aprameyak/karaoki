@@ -21,10 +21,11 @@ The browser only ever holds the user's session. Requests that need more than the
 
 ## Database
 
-Tables: `plans`, `profiles`, `user_preferences`, `songs`, `audio_files`, `processing_jobs`, `recordings`, `subscription_accounts`, `subscription_events`, `usage_records`, `audit_events`, `copyright_reports`.
+Tables: `plans`, `profiles`, `user_preferences`, `songs`, `audio_files`, `processing_jobs`, `recordings`, `usage_records`, `audit_events`, `copyright_reports`.
 
 Things worth knowing:
 
+- There is a single `free` row in `plans`. It holds the monthly job, storage, file size and duration limits, so you can change the limits with one update.
 - `profiles.plan_id` and `is_admin` can't be changed by the user (column level grants).
 - A partial unique index allows only one queued or processing job per song, which stops double submits.
 - `reserve_processing_job` locks the user's monthly usage row, checks the plan limit, creates the job and increments usage in one transaction.
@@ -49,4 +50,4 @@ A job that gets stuck (for example the worker is killed) is failed and refunded 
 
 ## Not built yet
 
-Billing, key and tempo export, lyrics, recording studio, admin dashboard, SEO tool pages, blog, email.
+Key and tempo export, lyrics, recording studio, admin dashboard, SEO tool pages, blog, email.

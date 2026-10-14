@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { FileAudio, UploadCloud, X } from "lucide-react";
-import { PLAN_CATALOG } from "@karaoki/shared";
+import { FREE_PLAN } from "@karaoki/shared";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { checkUpload } from "@/lib/upload";
@@ -17,7 +17,7 @@ export function UploadTeaser() {
 
   function choose(candidate: File | undefined) {
     if (!candidate) return;
-    const result = checkUpload(candidate.name, candidate.size, PLAN_CATALOG.free.maxFileBytes);
+    const result = checkUpload(candidate.name, candidate.size, FREE_PLAN.maxFileBytes);
     if (!result.ok) {
       setFile(null);
       setError(result.error ?? "That file cannot be used.");
@@ -74,7 +74,7 @@ export function UploadTeaser() {
             <UploadCloud className="h-10 w-10 text-primary" aria-hidden="true" />
             <div>
               <p className="text-lg font-medium">Drop a song here</p>
-              <p className="mt-1 text-sm text-muted">MP3, WAV, M4A or FLAC up to {formatBytes(PLAN_CATALOG.free.maxFileBytes)}</p>
+              <p className="mt-1 text-sm text-muted">MP3, WAV, M4A or FLAC up to {formatBytes(FREE_PLAN.maxFileBytes)}</p>
             </div>
             <Button type="button" variant="secondary" onClick={() => input.current?.click()}>
               Choose a file

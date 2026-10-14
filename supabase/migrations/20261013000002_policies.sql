@@ -5,8 +5,6 @@ alter table public.songs enable row level security;
 alter table public.audio_files enable row level security;
 alter table public.processing_jobs enable row level security;
 alter table public.recordings enable row level security;
-alter table public.subscription_accounts enable row level security;
-alter table public.subscription_events enable row level security;
 alter table public.usage_records enable row level security;
 alter table public.audit_events enable row level security;
 alter table public.copyright_reports enable row level security;
@@ -59,10 +57,6 @@ grant select, delete on public.recordings to authenticated;
 create policy recordings_select_own on public.recordings for select to authenticated
   using (user_id = auth.uid());
 create policy recordings_delete_own on public.recordings for delete to authenticated
-  using (user_id = auth.uid());
-
-grant select on public.subscription_accounts to authenticated;
-create policy subscription_select_own on public.subscription_accounts for select to authenticated
   using (user_id = auth.uid());
 
 grant select on public.usage_records to authenticated;

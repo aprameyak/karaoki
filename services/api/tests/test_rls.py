@@ -17,9 +17,7 @@ def test_user_cannot_read_other_profile_or_usage(make_user, make_song, as_role):
         profiles = conn.execute("select id from public.profiles").fetchall()
         assert [str(r["id"]) for r in profiles] == [a]
         assert (
-            conn.execute(
-                "select * from public.subscription_accounts where user_id = %s", (b,)
-            ).fetchall()
+            conn.execute("select * from public.usage_records where user_id = %s", (b,)).fetchall()
             == []
         )
 
@@ -28,7 +26,7 @@ def test_user_cannot_change_own_plan_or_admin_flag(make_user, as_role):
     a = make_user()
     with as_role("authenticated", a) as conn:
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
-            conn.execute("update public.profiles set plan_id = 'pro' where id = %s", (a,))
+            conn.execute("update public.profiles set plan_id = 'free' where id = %s", (a,))
     with as_role("authenticated", a) as conn:
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             conn.execute("update public.profiles set is_admin = true where id = %s", (a,))
@@ -137,7 +135,7 @@ def test_user_cannot_call_quota_functions(make_user, make_song, as_role):
 def test_anonymous_can_read_plans_only(as_role):
     with as_role("anon") as conn:
         plans = conn.execute("select id from public.plans order by id").fetchall()
-        assert [p["id"] for p in plans] == ["free", "pro"]
+        assert [p["id"] for p in plans] == ["free"]
     with as_role("anon") as conn:
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             conn.execute("select * from public.songs")
@@ -148,22 +146,18 @@ def test_anonymous_can_read_plans_only(as_role):
 
 def test_internal_tables_are_not_readable_by_users(make_user, as_role):
     a = make_user()
-    for table in ("subscription_events", "audit_events", "copyright_reports"):
+    for table in ("audit_events", "copyright_reports"):
         with as_role("authenticated", a) as conn:
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 conn.execute(f"select * from public.{table}")
 
 
-def test_new_user_gets_profile_preferences_and_subscription_row(make_user, sql):
+def test_new_user_gets_profile_and_preferences(make_user, sql):
     a = make_user()
     assert sql("select plan_id from public.profiles where id = %s", (a,))[0]["plan_id"] == "free"
     assert (
         sql("select count(*) as n from public.user_preferences where user_id = %s", (a,))[0]["n"]
         == 1
-    )
-    assert (
-        sql("select status from public.subscription_accounts where user_id = %s", (a,))[0]["status"]
-        == "none"
     )
 
 

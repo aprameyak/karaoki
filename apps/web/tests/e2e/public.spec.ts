@@ -80,7 +80,7 @@ test.describe("landing page", () => {
 test.describe("public pages", () => {
   for (const [path, heading] of [
     ["/features", "Features"],
-    ["/pricing", "Pricing"],
+    ["/pricing", "Karaoki is free"],
     ["/how-it-works", "How it works"],
     ["/faq", "Frequently asked questions"],
     ["/privacy", "Privacy policy"],
@@ -96,13 +96,15 @@ test.describe("public pages", () => {
     });
   }
 
-  test("pricing shows both plans and does not offer Pro yet", async ({ page }) => {
-    await page.goto("/pricing");
-    await expect(page.getByRole("heading", { name: "Free" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Pro" })).toBeVisible();
-    await expect(page.getByText("$6.99")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Not available yet" })).toBeDisabled();
+  test("pricing says Karaoki is free and has no paid plan", async ({ page }) => {
+    await open(page, "/pricing");
+    await expect(page.getByRole("heading", { name: "Free for everyone" })).toBeVisible();
+    await expect(page.getByText("$0")).toBeVisible();
     await expect(page.getByRole("link", { name: "Start free" })).toHaveAttribute("href", "/signup");
+    const text = (await page.locator("main").innerText()).toLowerCase();
+    for (const word of ["pro plan", "billing", "subscription price", "upgrade", "checkout"]) {
+      expect(text).not.toContain(word);
+    }
   });
 
   test("faq answers expand", async ({ page }) => {

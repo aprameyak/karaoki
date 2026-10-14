@@ -10,37 +10,22 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 export const AUDIO_KINDS = ["original", "instrumental", "vocals", "recording", "mix"] as const;
 export type AudioKind = (typeof AUDIO_KINDS)[number];
 
-export type PlanId = "free" | "pro";
-
 export interface PlanLimits {
-  id: PlanId;
+  id: string;
   name: string;
-  priceCents: number;
   monthlyJobs: number;
   maxStorageBytes: number;
   maxFileBytes: number;
   maxDurationSeconds: number;
 }
 
-export const PLAN_CATALOG: Record<PlanId, PlanLimits> = {
-  free: {
-    id: "free",
-    name: "Free",
-    priceCents: 0,
-    monthlyJobs: 3,
-    maxStorageBytes: 500 * 1024 * 1024,
-    maxFileBytes: 50 * 1024 * 1024,
-    maxDurationSeconds: 600,
-  },
-  pro: {
-    id: "pro",
-    name: "Pro",
-    priceCents: 699,
-    monthlyJobs: 100,
-    maxStorageBytes: 20 * 1024 * 1024 * 1024,
-    maxFileBytes: 200 * 1024 * 1024,
-    maxDurationSeconds: 1200,
-  },
+export const FREE_PLAN: PlanLimits = {
+  id: "free",
+  name: "Free",
+  monthlyJobs: 3,
+  maxStorageBytes: 500 * 1024 * 1024,
+  maxFileBytes: 50 * 1024 * 1024,
+  maxDurationSeconds: 600,
 };
 
 export const STAGE_LABELS: Record<string, string> = {

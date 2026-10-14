@@ -3,7 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { BeforeAfter } from "@/components/marketing/before-after";
 import { FaqList } from "@/components/marketing/faq-list";
 import { JsonLd } from "@/components/marketing/json-ld";
-import { PricingCards } from "@/components/marketing/pricing-cards";
+import { FreePlanCard } from "@/components/marketing/free-plan-card";
 import { ProductPreview } from "@/components/marketing/product-preview";
 import { Section } from "@/components/marketing/section";
 import { UploadTeaser } from "@/components/marketing/upload-teaser";
@@ -110,11 +110,11 @@ export default function HomePage() {
         <BeforeAfter />
       </Section>
 
-      <Section title="Simple pricing" intro="Start free. Paid plans open when billing is ready.">
-        <PricingCards />
+      <Section title="Free to use" intro="No subscription and no payment details. Just monthly limits.">
+        <FreePlanCard />
         <p className="mt-6 text-center text-sm">
           <Link href="/pricing" className="inline-flex items-center gap-1 text-primary hover:underline">
-            Compare plans <ArrowRight className="h-4 w-4" />
+            See what is included <ArrowRight className="h-4 w-4" />
           </Link>
         </p>
       </Section>

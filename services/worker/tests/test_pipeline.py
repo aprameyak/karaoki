@@ -23,8 +23,8 @@ def fake_separator(source, out_dir, model, on_progress, should_stop, timeout):
 
 @pytest.fixture
 def prepare(make_user, make_song, storage, audio_file):
-    def build(plan="free", fmt="mp3", seconds=3.0, data=None, register=True):
-        user = make_user(plan)
+    def build(fmt="mp3", seconds=3.0, data=None, register=True):
+        user = make_user()
         song = make_song(user, filename=f"track.{fmt}", status="uploading")
         body = data if data is not None else audio_file(fmt, seconds)
         path = f"{user}/{song}/original.{fmt}"

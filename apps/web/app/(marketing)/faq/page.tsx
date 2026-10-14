@@ -7,7 +7,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "FAQ",
   description:
-    "Answers about Karaoki: how vocal removal works, supported files, privacy, copyright and pricing.",
+    "Answers about Karaoki: how vocal removal works, supported files, privacy, copyright and limits.",
   path: "/faq",
 });
 

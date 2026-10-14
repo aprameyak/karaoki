@@ -23,10 +23,6 @@ export function formatDuration(seconds: number | null | undefined): string {
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(secs)}` : `${minutes}:${pad(secs)}`;
 }
 
-export function formatPrice(cents: number): string {
-  return cents === 0 ? "$0" : `$${(cents / 100).toFixed(2)}`;
-}
-
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }

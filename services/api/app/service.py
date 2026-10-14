@@ -26,9 +26,8 @@ def start_job(redis: Redis, user_id: str, song_id: str, model: str) -> dict:
     except DomainError as exc:
         raise to_api_error(exc) from exc
 
-    job = db.get_job(job_id)
     try:
-        queue_id = queueing.enqueue(redis, job_id, job["priority"])
+        queue_id = queueing.enqueue(redis, job_id)
         db.set_queue_id(job_id, queue_id)
     except Exception as exc:
         log.exception("enqueue failed", extra={"fields": {"job_id": job_id}})

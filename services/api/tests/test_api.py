@@ -72,14 +72,6 @@ def test_process_queues_a_job(client, login, make_user, upload, sql, redis_clien
     assert usage(sql, user) == 1
 
 
-def test_pro_jobs_use_the_priority_queue(client, login, make_user, upload, redis_client):
-    user = make_user("pro")
-    login(user)
-    assert client.post(f"/v1/songs/{upload(user)}/process").status_code == 200
-    assert Queue("separation-high", connection=redis_client).count == 1
-    assert Queue("separation", connection=redis_client).count == 0
-
-
 def test_missing_upload_is_rejected(client, login, make_user, make_song, sql):
     user = make_user()
     login(user)
@@ -230,7 +222,7 @@ def test_queue_outage_fails_the_job_and_refunds(app, client, login, make_user, u
     from app import queueing
 
     original = queueing.enqueue
-    queueing.enqueue = lambda redis, job_id, priority: original(broken, job_id, priority)
+    queueing.enqueue = lambda redis, job_id: original(broken, job_id)
     try:
         res = client.post(f"/v1/songs/{song}/process")
     finally:

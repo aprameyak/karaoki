@@ -4,18 +4,14 @@ create extension if not exists pg_trgm;
 create table public.plans (
   id text primary key,
   name text not null,
-  price_cents integer not null default 0,
   monthly_jobs integer not null,
   max_storage_bytes bigint not null,
   max_file_bytes bigint not null,
-  max_duration_seconds integer not null,
-  priority integer not null default 0
+  max_duration_seconds integer not null
 );
 
-insert into public.plans (id, name, price_cents, monthly_jobs, max_storage_bytes, max_file_bytes, max_duration_seconds, priority)
-values
-  ('free', 'Free', 0, 3, 524288000, 52428800, 600, 0),
-  ('pro', 'Pro', 699, 100, 21474836480, 209715200, 1200, 10);
+insert into public.plans (id, name, monthly_jobs, max_storage_bytes, max_file_bytes, max_duration_seconds)
+values ('free', 'Free', 3, 524288000, 52428800, 600);
 
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -86,7 +82,6 @@ create table public.processing_jobs (
   error text,
   attempt integer not null default 1,
   model text not null default 'htdemucs',
-  priority integer not null default 0,
   queue_job_id text,
   started_at timestamptz,
   finished_at timestamptz,
@@ -110,28 +105,6 @@ create table public.recordings (
 
 create index recordings_song_idx on public.recordings (song_id);
 create index recordings_user_idx on public.recordings (user_id);
-
-create table public.subscription_accounts (
-  user_id uuid primary key references public.profiles (id) on delete cascade,
-  stripe_customer_id text unique,
-  stripe_subscription_id text unique,
-  plan_id text not null default 'free' references public.plans (id),
-  status text not null default 'none',
-  current_period_end timestamptz,
-  cancel_at_period_end boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table public.subscription_events (
-  id uuid primary key default gen_random_uuid(),
-  stripe_event_id text not null unique,
-  type text not null,
-  user_id uuid references public.profiles (id) on delete set null,
-  payload jsonb not null,
-  processed_at timestamptz,
-  created_at timestamptz not null default now()
-);
 
 create table public.usage_records (
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -180,8 +153,6 @@ create trigger processing_jobs_updated before update on public.processing_jobs
   for each row execute function public.set_updated_at();
 create trigger user_preferences_updated before update on public.user_preferences
   for each row execute function public.set_updated_at();
-create trigger subscription_accounts_updated before update on public.subscription_accounts
-  for each row execute function public.set_updated_at();
 
 create function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -194,7 +165,6 @@ begin
     new.raw_user_meta_data ->> 'avatar_url'
   );
   insert into public.user_preferences (user_id) values (new.id);
-  insert into public.subscription_accounts (user_id) values (new.id);
   return new;
 end;
 $$;
@@ -256,12 +226,11 @@ begin
     raise exception 'quota_exceeded' using errcode = 'P0004';
   end if;
 
-  insert into public.processing_jobs (song_id, user_id, model, priority, attempt)
+  insert into public.processing_jobs (song_id, user_id, model, attempt)
   values (
     p_song,
     p_user,
     p_model,
-    v_plan.priority,
     1 + (select count(*) from public.processing_jobs where song_id = p_song)
   )
   returning id into v_job;

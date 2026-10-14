@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clamp, formatBytes, formatDuration, formatPrice, timeAgo } from "@/lib/utils";
+import { clamp, formatBytes, formatDuration, timeAgo } from "@/lib/utils";
 
 describe("formatBytes", () => {
   it("formats common sizes", () => {
@@ -29,13 +29,6 @@ describe("formatDuration", () => {
     expect(formatDuration(undefined)).toBe("0:00");
     expect(formatDuration(-3)).toBe("0:00");
     expect(formatDuration(Number.POSITIVE_INFINITY)).toBe("0:00");
-  });
-});
-
-describe("formatPrice", () => {
-  it("formats cents", () => {
-    expect(formatPrice(0)).toBe("$0");
-    expect(formatPrice(699)).toBe("$6.99");
   });
 });
 

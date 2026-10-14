@@ -1,4 +1,4 @@
-import { PLAN_CATALOG } from "@karaoki/shared";
+import { FREE_PLAN } from "@karaoki/shared";
 import { z } from "zod";
 import { ApiCallError, errorResponse } from "@/lib/api";
 import { readJson, requireSession } from "@/lib/route-auth";
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       .single();
     const plans = profile?.plans as { max_file_bytes: number } | { max_file_bytes: number }[] | null | undefined;
     const planLimit = Array.isArray(plans) ? plans[0]?.max_file_bytes : plans?.max_file_bytes;
-    const maxBytes = planLimit ?? PLAN_CATALOG.free.maxFileBytes;
+    const maxBytes = planLimit ?? FREE_PLAN.maxFileBytes;
 
     const check = checkUpload(body.filename, body.size, Number(maxBytes));
     if (!check.ok || !ext) {

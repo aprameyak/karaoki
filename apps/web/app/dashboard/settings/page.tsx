@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { DeleteAccount, ExportButton, PreferencesForm, ProfileForm } from "@/components/dashboard/settings-forms";
 import { loadAccount } from "@/lib/account";
 import { createClient } from "@/lib/supabase/server";
-import { formatBytes, formatPrice } from "@/lib/utils";
+import { formatBytes } from "@/lib/utils";
 
 export const metadata = { title: "Settings" };
 
@@ -31,12 +31,11 @@ export default async function SettingsPage() {
       </Card>
 
       <Card>
-        <h2 className="mb-2 text-lg font-semibold">Subscription</h2>
+        <h2 className="mb-2 text-lg font-semibold">Usage limits</h2>
         <p className="text-muted">
-          You are on the <strong className="text-ink">{account.plan.name}</strong> plan ({formatPrice(account.plan.priceCents)} per
-          month): {account.plan.monthlyJobs} songs a month and {formatBytes(account.plan.maxStorageBytes)} of storage.
+          Karaoki is free. Each month you can process {account.plan.monthlyJobs} songs, and you can keep{" "}
+          {formatBytes(account.plan.maxStorageBytes)} of music in your library.
         </p>
-        <p className="mt-2 text-sm text-muted">Paid plans and the billing portal open when billing is ready.</p>
       </Card>
 
       <Card>

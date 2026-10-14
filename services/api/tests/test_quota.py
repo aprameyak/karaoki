@@ -14,10 +14,8 @@ def test_reserve_creates_job_and_counts_usage(make_user, make_song, sql):
     user = make_user()
     song = make_song(user)
     job = reserve(user, song)
-    row = sql("select status, attempt, priority from public.processing_jobs where id = %s", (job,))[
-        0
-    ]
-    assert row == {"status": "queued", "attempt": 1, "priority": 0}
+    row = sql("select status, attempt from public.processing_jobs where id = %s", (job,))[0]
+    assert row == {"status": "queued", "attempt": 1}
     used = sql("select jobs_used from public.usage_records where user_id = %s", (user,))[0]
     assert used["jobs_used"] == 1
     assert (
@@ -33,21 +31,6 @@ def test_free_plan_stops_at_three_jobs(make_user, make_song):
     with pytest.raises(DomainError) as err:
         reserve(user, make_song(user))
     assert err.value.code == "quota_exceeded"
-
-
-def test_pro_plan_has_higher_limit(make_user, make_song):
-    user = make_user("pro")
-    for _ in range(5):
-        reserve(user, make_song(user))
-
-
-def test_pro_jobs_get_priority(make_user, make_song, sql):
-    user = make_user("pro")
-    job = reserve(user, make_song(user))
-    assert (
-        sql("select priority from public.processing_jobs where id = %s", (job,))[0]["priority"]
-        == 10
-    )
 
 
 def test_failed_job_refunds_quota(make_user, make_song, sql):
@@ -194,7 +177,7 @@ def test_concurrent_reservations_cannot_bypass_the_limit(make_user, make_song):
 
 
 def test_concurrent_reservations_for_one_song_create_one_job(make_user, make_song, sql):
-    user = make_user("pro")
+    user = make_user()
     song = make_song(user)
     results = []
     lock = threading.Lock()

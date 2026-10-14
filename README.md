@@ -2,7 +2,7 @@
 
 Your Music. Your Voice. Your Stage.
 
-Karaoki is a karaoke studio that runs in the browser. You upload a song you have the rights to, an AI model (Demucs) splits it into vocals and instrumental, and you sing along with the instrumental. Everything stays in your own private library.
+Karaoki is a free karaoke studio that runs in the browser. You upload a song you have the rights to, an AI model (Demucs) splits it into vocals and instrumental, and you sing along with the instrumental. Everything stays in your own private library.
 
 This repo is the whole thing: the website, the API, the background worker and the database.
 
@@ -10,7 +10,7 @@ This repo is the whole thing: the website, the API, the background worker and th
 
 Phase 1 is built and tested:
 
-- Landing page and the public pages (features, pricing, how it works, FAQ, contact, privacy, terms, copyright)
+- Landing page and the public pages (features, how it works, FAQ, contact, privacy, terms, copyright)
 - Sign up, log in, Google sign in, email verification, password reset
 - Dashboard with usage, storage and recent songs
 - Upload with drag and drop, progress, retries and a rights confirmation
@@ -18,14 +18,13 @@ Phase 1 is built and tested:
 - Karaoki player: waveform, seek, volume, speed, instrumental / vocals / original, downloads, keyboard shortcuts
 - Private library: search, sort, favorites, rename, delete, pagination
 - Settings: profile, player volume, data export, account deletion
-- Monthly quotas that can't be bypassed by sending requests at the same time
+- Free to use. Monthly limits (3 songs, 500 MB of storage) that can't be bypassed by sending requests at the same time
 - Copyright report form that is stored for review
 
 ## What is not built yet
 
 I'm saying this plainly so nobody assumes it exists:
 
-- Stripe billing, the customer portal and webhooks. The Pro plan is shown but can't be bought.
 - Pitch and key changes, and exporting adjusted instrumentals. The player can change speed only.
 - Synced lyrics and the recording studio.
 - The admin dashboard.
@@ -140,7 +139,7 @@ Set `KARAOKI_TEST_PG` if Postgres isn't at `postgresql://postgres@localhost:5543
 
 What the tests cover: upload validation, quota reservation under concurrent requests, row level security, the API endpoints, the job pipeline (success, failures, cancellation, crashes), the cleanup jobs and the real separation model. In the browser tests: the public pages, forms, redirects, SEO files and security headers.
 
-What they don't cover: a full run against a real Supabase project (sign in, signed uploads, storage), Stripe, and the Docker images. I could not run those here.
+What they don't cover: a full run against a real Supabase project (sign in, signed uploads, storage) and the Docker images. I could not run those here.
 
 ## Deploying
 

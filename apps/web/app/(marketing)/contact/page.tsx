@@ -3,7 +3,7 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Contact",
-  description: "Get in touch with the Karaoki team about support, billing or copyright.",
+  description: "Get in touch with the Karaoki team about support or copyright.",
   path: "/contact",
 });
 

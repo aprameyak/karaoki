@@ -1,4 +1,4 @@
-import { PLAN_CATALOG, type PlanId, type PlanLimits } from "@karaoki/shared";
+import { FREE_PLAN, type PlanLimits } from "@karaoki/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export function currentPeriodStart(now: Date = new Date()): string {
@@ -18,7 +18,6 @@ export interface AccountSummary {
 interface PlanRow {
   id: string;
   name: string;
-  price_cents: number;
   monthly_jobs: number;
   max_storage_bytes: number;
   max_file_bytes: number;
@@ -26,11 +25,10 @@ interface PlanRow {
 }
 
 export function planFromRow(row: PlanRow | null | undefined): PlanLimits {
-  if (!row) return PLAN_CATALOG.free;
+  if (!row) return FREE_PLAN;
   return {
-    id: (row.id === "pro" ? "pro" : "free") as PlanId,
+    id: row.id,
     name: row.name,
-    priceCents: row.price_cents,
     monthlyJobs: row.monthly_jobs,
     maxStorageBytes: Number(row.max_storage_bytes),
     maxFileBytes: Number(row.max_file_bytes),

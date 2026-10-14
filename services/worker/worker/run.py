@@ -8,7 +8,7 @@ def main() -> None:
     logs.configure()
     settings = get_settings()
     worker = Worker(
-        [settings.high_priority_queue_name, settings.queue_name],
+        [settings.queue_name],
         connection=redis_connection(),
     )
     worker.work()

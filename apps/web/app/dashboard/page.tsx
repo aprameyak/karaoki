@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { loadAccount } from "@/lib/account";
 import { SONG_COLUMNS, latestJobs, type SongListItem } from "@/lib/songs";
 import { createClient } from "@/lib/supabase/server";
-import { formatBytes, formatPrice } from "@/lib/utils";
+import { formatBytes } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -58,10 +58,10 @@ export default async function DashboardPage() {
           <p className="mt-2 text-xs text-muted">{account.songCount} songs in your library</p>
         </Card>
         <Card>
-          <p className="text-sm text-muted">Plan</p>
-          <p className="mt-2 text-2xl font-semibold">{account.plan.name}</p>
+          <p className="text-sm text-muted">Account</p>
+          <p className="mt-2 text-2xl font-semibold">Free</p>
           <p className="mt-4 text-sm text-muted">
-            {formatPrice(account.plan.priceCents)} per month. Paid plans open when billing is ready.
+            Karaoki is free to use. Your limits reset at the start of each month.
           </p>
         </Card>
       </section>

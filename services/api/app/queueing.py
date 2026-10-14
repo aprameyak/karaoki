@@ -12,10 +12,9 @@ def redis_connection() -> Redis:
     return Redis.from_url(get_settings().redis_url)
 
 
-def enqueue(redis: Redis, job_id: str, priority: int) -> str:
+def enqueue(redis: Redis, job_id: str) -> str:
     settings = get_settings()
-    name = settings.high_priority_queue_name if priority > 0 else settings.queue_name
-    queue = Queue(name, connection=redis)
+    queue = Queue(settings.queue_name, connection=redis)
     queued = queue.enqueue(
         TASK_PATH,
         job_id,

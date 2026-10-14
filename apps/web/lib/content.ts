@@ -1,8 +1,7 @@
-import { PLAN_CATALOG, ALLOWED_EXTENSIONS } from "@karaoki/shared";
-import { formatBytes, formatPrice } from "@/lib/utils";
+import { ALLOWED_EXTENSIONS, FREE_PLAN } from "@karaoki/shared";
+import { formatBytes } from "@/lib/utils";
 
-const free = PLAN_CATALOG.free;
-const pro = PLAN_CATALOG.pro;
+const free = FREE_PLAN;
 
 export const TAGLINE = "Your Music. Your Voice. Your Stage.";
 
@@ -42,13 +41,13 @@ export const FAQS: Faq[] = [
       "It depends on the length of the song and the hardware that is available. Karaoki shows the real progress reported by the separation job instead of a made-up timer.",
   },
   {
-    question: "What does it cost?",
-    answer: `The free plan includes ${free.monthlyJobs} songs per month. Pro is planned at ${formatPrice(pro.priceCents)} per month with ${pro.monthlyJobs} songs per month and more storage. Paid billing is not open yet, so every account is on the free plan for now.`,
+    question: "Is Karaoki really free?",
+    answer: `Yes. There are no subscriptions and no payment details. Each account can process ${free.monthlyJobs} songs per month and store ${formatBytes(free.maxStorageBytes)} so that the service stays available for everyone.`,
   },
   {
     question: "Can I change the key or the tempo?",
     answer:
-      "The player can slow down or speed up a song today while keeping the pitch. Changing the key and exporting adjusted instrumentals is part of the upcoming Pro tools.",
+      "The player can slow down or speed up a song today while keeping the pitch. Changing the key and exporting adjusted instrumentals is planned.",
   },
 ];
 
@@ -101,11 +100,6 @@ export const FEATURES = [
   {
     title: "Recording studio",
     body: "Record your performance over the instrumental and mix it.",
-    status: "soon",
-  },
-  {
-    title: "Pro billing",
-    body: "Higher limits and priority processing with Stripe billing.",
     status: "soon",
   },
 ] as const;
