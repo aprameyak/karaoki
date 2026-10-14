@@ -1,0 +1,24 @@
+FROM node:24-slim AS build
+WORKDIR /srv
+COPY package.json package-lock.json ./
+COPY apps/web/package.json apps/web/
+COPY packages/shared/package.json packages/shared/
+RUN npm ci
+COPY apps/web apps/web
+COPY packages/shared packages/shared
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SUPPORT_EMAIL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
+    NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
+    NEXT_PUBLIC_SUPPORT_EMAIL=$NEXT_PUBLIC_SUPPORT_EMAIL
+RUN npm run build
+
+FROM node:24-slim
+WORKDIR /srv
+ENV NODE_ENV=production
+COPY --from=build /srv /srv
+EXPOSE 3000
+CMD ["npm", "run", "start", "-w", "@karaoki/web"]
