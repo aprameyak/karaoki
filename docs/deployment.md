@@ -11,8 +11,10 @@
 ## API and worker
 
 - Build the images from `docker/api.Dockerfile` and `docker/worker.Dockerfile`.
-- Give both the same `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `REDIS_URL`. The API also needs `SUPABASE_ANON_KEY` and `WEB_ORIGIN`.
+- Set a long random `REDIS_PASSWORD` and keep Redis off the public internet. Jobs on the queue are Python pickles, so anyone who can write to Redis can run code on the worker.
+- Give both the same `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `REDIS_URL`. Both also need `SUPABASE_ANON_KEY`. The API also needs `WEB_ORIGIN`.
 - Run one or more worker containers. The worker listens to the `separation`, `adjust` and `mix` queues. Add `DEMUCS_DEVICE=cuda` on GPU hosts. Run one `cleanup` container.
+- Set the same `INTERNAL_API_SECRET` on the API and the web app so the public forms are rate limited per real visitor.
 - Put the API behind HTTPS. Only the web server needs to reach it, so keep it off the public internet if you can.
 - Point a health check at `GET /health`. It returns 503 if the database or Redis is down.
 

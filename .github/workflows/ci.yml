@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - run: npm run test:e2e
+        working-directory: apps/web
+
+  services:
+    runs-on: ubuntu-latest
+    env:
+      KARAOKI_TEST_PG: postgresql://postgres:postgres@localhost:5432
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg redis-server
+      - uses: astral-sh/setup-uv@v5
+      - name: api
+        working-directory: services/api
+        run: |
+          uv sync --python 3.13
+          uv run ruff check .
+          uv run pytest -q
+      - name: worker
+        working-directory: services/worker
+        run: |
+          uv sync --python 3.13
+          uv run ruff check .
+          uv run pytest -q -m "not slow"

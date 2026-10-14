@@ -54,11 +54,24 @@ The admin pages call the API with the signed-in user's token. The API checks `pr
 
 When a job finishes or fails, the worker sends one email through Resend if `RESEND_API_KEY` and `EMAIL_FROM` are set and the user has not turned notifications off. Failures to send are logged and never affect the job.
 
+## Deleting things
+
+Users cannot delete songs or takes through the database. The web app calls the API, which removes every file for the song (original, stems, exports, mixes) from all three buckets and only then deletes the rows. If storage fails, nothing is deleted and the user can try again. Admins can remove a reported song the same way.
+
+## Quota rules
+
+- A job takes one of the monthly slots when it is queued.
+- The slot is returned if the job fails, or is canceled before a worker picked it up.
+- Canceling a running job keeps the slot, so cancel-and-retry cannot be used to get free compute.
+- Exports, previews and recordings do not use song slots. They are limited by rate limits, the number of running exports, previews per hour, takes per song and storage. Those limits are checked with a lock on the user's profile row so parallel requests can't slip past them.
+
 ## Cleanup
 
 `python -m worker.cleanup --loop` runs every 15 minutes and:
 
-- fails jobs that stopped making progress,
+- fails jobs that stopped making progress (30 minutes while processing, 6 hours while queued), and exports and mixes that did the same,
+- removes storage objects nobody registered after a day,
+- removes leftover temp folders from killed workers,
 - removes uploads that never finished after 24 hours,
 - removes preview exports after 24 hours,
 - deletes audit events older than a year.
