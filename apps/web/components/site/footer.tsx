@@ -12,8 +12,18 @@ const columns = [
     ],
   },
   {
+    title: "Tools",
+    links: [
+      { href: "/ai-karaoke-maker", label: "AI karaoke maker" },
+      { href: "/vocal-remover", label: "Vocal remover" },
+      { href: "/mp3-to-karaoke", label: "MP3 to karaoke" },
+      { href: "/pitch-changer", label: "Pitch changer" },
+    ],
+  },
+  {
     title: "Company",
-    links: [{ href: "/contact", label: "Contact" }],
+    links: [{ href: "/blog", label: "Blog" },
+      { href: "/contact", label: "Contact" }],
   },
   {
     title: "Legal",
@@ -28,7 +38,7 @@ const columns = [
 export function SiteFooter() {
   return (
     <footer className="mt-24 border-t border-line/60">
-      <div className="mx-auto grid max-w-6xl gap-10 px-5 py-12 md:grid-cols-[1.5fr_repeat(3,1fr)]">
+      <div className="mx-auto grid max-w-6xl gap-10 px-5 py-12 md:grid-cols-[1.4fr_repeat(4,1fr)]">
         <div>
           <Logo />
           <p className="mt-3 max-w-xs text-sm text-muted">Your Music. Your Voice. Your Stage.</p>

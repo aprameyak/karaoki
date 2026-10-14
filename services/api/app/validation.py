@@ -11,13 +11,20 @@ FORMAT_BY_PROBE_NAME = {
     "wav": "wav",
     "flac": "flac",
     "mov,mp4,m4a,3gp,3g2,mj2": "m4a",
+    "matroska,webm": "webm",
+    "ogg": "ogg",
 }
+
+UPLOAD_FORMATS = frozenset({"mp3", "wav", "flac", "m4a"})
+RECORDING_FORMATS = frozenset({"webm", "ogg", "m4a", "wav", "mp3"})
 
 CODECS_BY_FORMAT = {
     "mp3": {"mp3", "mp3float"},
     "wav": {"pcm_s16le", "pcm_s24le", "pcm_s32le", "pcm_f32le", "pcm_f64le", "pcm_u8"},
     "flac": {"flac"},
     "m4a": {"aac", "alac"},
+    "webm": {"opus", "vorbis"},
+    "ogg": {"opus", "vorbis"},
 }
 
 CONTENT_TYPES = {
@@ -25,6 +32,8 @@ CONTENT_TYPES = {
     "wav": "audio/wav",
     "flac": "audio/flac",
     "m4a": "audio/mp4",
+    "webm": "audio/webm",
+    "ogg": "audio/ogg",
 }
 
 MIN_DURATION_SECONDS = 1.0
@@ -75,13 +84,18 @@ def run_ffprobe(source: str, timeout: int) -> dict:
         raise ApiError(422, "invalid_audio", "That file is not a readable audio file") from exc
 
 
-def inspect_audio(source: str, max_duration: int, timeout: int = 45) -> ProbeResult:
+def inspect_audio(
+    source: str,
+    max_duration: int,
+    timeout: int = 45,
+    allowed: frozenset[str] = UPLOAD_FORMATS,
+) -> ProbeResult:
     info = run_ffprobe(source, timeout)
     fmt = info.get("format", {})
     streams = info.get("streams", [])
 
     fmt_key = FORMAT_BY_PROBE_NAME.get(fmt.get("format_name", ""))
-    if fmt_key is None:
+    if fmt_key is None or fmt_key not in allowed:
         raise ApiError(422, "unsupported_format", "Upload an MP3, WAV, M4A or FLAC file")
 
     audio = [s for s in streams if s.get("codec_type") == "audio"]
@@ -100,8 +114,8 @@ def inspect_audio(source: str, max_duration: int, timeout: int = 45) -> ProbeRes
 
     try:
         duration = float(fmt.get("duration") or stream.get("duration"))
-    except (TypeError, ValueError) as exc:
-        raise ApiError(422, "invalid_audio", "Could not read the song length") from exc
+    except (TypeError, ValueError):
+        duration = measure_duration(source, timeout)
     if duration < MIN_DURATION_SECONDS:
         raise ApiError(422, "too_short", "The song is too short to process")
     if duration > max_duration:
@@ -128,3 +142,34 @@ def inspect_audio(source: str, max_duration: int, timeout: int = 45) -> ProbeRes
         channels=channels,
         size_bytes=int(size) if size and str(size).isdigit() else None,
     )
+
+
+def measure_duration(source: str, timeout: int) -> float:
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-nostats",
+        "-i",
+        source,
+        "-vn",
+        "-f",
+        "null",
+        "-progress",
+        "pipe:1",
+        "-",
+    ]
+    try:
+        out = subprocess.run(cmd, capture_output=True, timeout=timeout, check=False)
+    except subprocess.TimeoutExpired as exc:
+        raise ApiError(422, "probe_timeout", "The file could not be inspected in time") from exc
+    if out.returncode != 0:
+        raise ApiError(422, "invalid_audio", "That file is not a readable audio file")
+    micros = [
+        int(line.split("=", 1)[1])
+        for line in out.stdout.decode(errors="replace").splitlines()
+        if line.startswith("out_time_us=") and line.split("=", 1)[1].lstrip("-").isdigit()
+    ]
+    if not micros:
+        raise ApiError(422, "invalid_audio", "Could not read the audio length")
+    return max(micros) / 1_000_000

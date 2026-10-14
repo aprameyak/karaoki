@@ -55,6 +55,13 @@ describe("redirectTarget", () => {
     expect(redirectTarget("/dashboard/songs/1", false)).toBe("/login?next=%2Fdashboard%2Fsongs%2F1");
   });
 
+  it("protects the admin area the same way", () => {
+    expect(redirectTarget("/admin", false)).toBe("/login?next=%2Fadmin");
+    expect(redirectTarget("/admin/jobs", false)).toBe("/login?next=%2Fadmin%2Fjobs");
+    expect(redirectTarget("/admin", true)).toBeNull();
+    expect(redirectTarget("/administrator", false)).toBeNull();
+  });
+
   it("does not protect public pages", () => {
     expect(redirectTarget("/", false)).toBeNull();
     expect(redirectTarget("/login", false)).toBeNull();

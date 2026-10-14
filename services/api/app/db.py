@@ -326,3 +326,292 @@ def insert_copyright_report(name: str, email: str, work: str, location: str) -> 
         (name, email, work, location),
     )
     return str(row["id"])
+
+
+def song_stem_files(song_id: str) -> dict[str, dict]:
+    rows = fetch_all(
+        "select * from public.audio_files where song_id = %s::uuid and kind in ('instrumental', 'vocals')",
+        (song_id,),
+    )
+    return {row["kind"]: row for row in rows}
+
+
+def active_export_count(user_id: str) -> int:
+    row = fetch_one(
+        "select count(*) as n from public.audio_exports where user_id = %s::uuid and status in ('queued', 'processing')",
+        (user_id,),
+    )
+    return int(row["n"])
+
+
+def create_export(
+    user_id: str, song_id: str, source: str, semitones: int, tempo: float, preview: bool
+) -> str:
+    row = fetch_one(
+        """
+        insert into public.audio_exports (user_id, song_id, source, semitones, tempo, preview)
+        values (%s::uuid, %s::uuid, %s, %s, %s, %s)
+        returning id
+        """,
+        (user_id, song_id, source, semitones, tempo, preview),
+    )
+    return str(row["id"])
+
+
+def get_export(export_id: str) -> dict | None:
+    return fetch_one("select * from public.audio_exports where id = %s::uuid", (export_id,))
+
+
+def get_user_export(user_id: str, export_id: str) -> dict | None:
+    return fetch_one(
+        "select * from public.audio_exports where id = %s::uuid and user_id = %s::uuid",
+        (export_id, user_id),
+    )
+
+
+def set_export_queue_id(export_id: str, queue_job_id: str) -> None:
+    execute(
+        "update public.audio_exports set queue_job_id = %s where id = %s::uuid",
+        (queue_job_id, export_id),
+    )
+
+
+def mark_export_processing(export_id: str) -> bool:
+    return (
+        execute(
+            "update public.audio_exports set status = 'processing' where id = %s::uuid and status = 'queued'",
+            (export_id,),
+        )
+        == 1
+    )
+
+
+def finish_export(
+    export_id: str, status: str, error: str | None = None, audio_file_id: str | None = None
+) -> None:
+    execute(
+        """
+        update public.audio_exports
+        set status = %s, error = %s, audio_file_id = %s
+        where id = %s::uuid and status in ('queued', 'processing')
+        """,
+        (status, error, audio_file_id, export_id),
+    )
+
+
+def insert_audio_file(
+    song_id: str,
+    user_id: str,
+    kind: str,
+    bucket: str,
+    path: str,
+    fmt: str,
+    size_bytes: int,
+    duration: float | None,
+    sample_rate: int | None,
+) -> str:
+    row = fetch_one(
+        """
+        insert into public.audio_files
+          (song_id, user_id, kind, bucket, path, format, size_bytes, duration_seconds, sample_rate)
+        values (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s)
+        returning id
+        """,
+        (song_id, user_id, kind, bucket, path, fmt, size_bytes, duration, sample_rate),
+    )
+    return str(row["id"])
+
+
+def get_audio_file(file_id: str) -> dict | None:
+    return fetch_one("select * from public.audio_files where id = %s::uuid", (file_id,))
+
+
+def delete_audio_file(file_id: str) -> None:
+    execute("delete from public.audio_files where id = %s::uuid", (file_id,))
+
+
+def delete_export(export_id: str) -> None:
+    execute("delete from public.audio_exports where id = %s::uuid", (export_id,))
+
+
+def stale_previews(hours: int) -> list[dict]:
+    return fetch_all(
+        """
+        select id, audio_file_id from public.audio_exports
+        where preview and created_at < now() - make_interval(hours => %s)
+        """,
+        (hours,),
+    )
+
+
+def create_recording(
+    user_id: str,
+    song_id: str,
+    audio_file_id: str,
+    title: str,
+    offset_ms: int,
+    vocal_gain: float,
+    backing_gain: float,
+) -> str:
+    row = fetch_one(
+        """
+        insert into public.recordings
+          (user_id, song_id, audio_file_id, title, status, offset_ms, vocal_gain, backing_gain)
+        values (%s::uuid, %s::uuid, %s::uuid, %s, 'mixing', %s, %s, %s)
+        returning id
+        """,
+        (user_id, song_id, audio_file_id, title, offset_ms, vocal_gain, backing_gain),
+    )
+    return str(row["id"])
+
+
+def get_recording(recording_id: str) -> dict | None:
+    return fetch_one("select * from public.recordings where id = %s::uuid", (recording_id,))
+
+
+def get_user_recording(user_id: str, recording_id: str) -> dict | None:
+    return fetch_one(
+        "select * from public.recordings where id = %s::uuid and user_id = %s::uuid",
+        (recording_id, user_id),
+    )
+
+
+def set_recording_queue_id(recording_id: str, queue_job_id: str) -> None:
+    execute(
+        "update public.recordings set queue_job_id = %s where id = %s::uuid",
+        (queue_job_id, recording_id),
+    )
+
+
+def update_recording_settings(
+    recording_id: str, offset_ms: int, vocal_gain: float, backing_gain: float
+) -> None:
+    execute(
+        """
+        update public.recordings
+        set offset_ms = %s, vocal_gain = %s, backing_gain = %s, status = 'mixing', error = null
+        where id = %s::uuid
+        """,
+        (offset_ms, vocal_gain, backing_gain, recording_id),
+    )
+
+
+def finish_recording(
+    recording_id: str, status: str, error: str | None = None, mix_file_id: str | None = None
+) -> None:
+    execute(
+        """
+        update public.recordings
+        set status = %s, error = %s, mix_file_id = coalesce(%s::uuid, mix_file_id)
+        where id = %s::uuid
+        """,
+        (status, error, mix_file_id, recording_id),
+    )
+
+
+def delete_recording(recording_id: str) -> None:
+    execute("delete from public.recordings where id = %s::uuid", (recording_id,))
+
+
+def platform_stats() -> dict:
+    row = fetch_one("select public.platform_stats() as stats")
+    return row["stats"]
+
+
+def is_admin(user_id: str) -> bool:
+    row = fetch_one("select is_admin from public.profiles where id = %s::uuid", (user_id,))
+    return bool(row and row["is_admin"])
+
+
+def admin_jobs(status: str | None, limit: int) -> list[dict]:
+    return fetch_all(
+        """
+        select j.id, j.status, j.stage, j.progress, j.error, j.attempt, j.created_at, j.finished_at,
+               j.song_id, s.title, p.email
+        from public.processing_jobs j
+        join public.songs s on s.id = j.song_id
+        join public.profiles p on p.id = j.user_id
+        where (%s::text is null or j.status = %s::text)
+        order by j.created_at desc
+        limit %s
+        """,
+        (status, status, limit),
+    )
+
+
+def get_job_owner(job_id: str) -> dict | None:
+    return fetch_one(
+        "select user_id, song_id, model, status from public.processing_jobs where id = %s::uuid",
+        (job_id,),
+    )
+
+
+def list_copyright_reports(status: str | None, limit: int) -> list[dict]:
+    return fetch_all(
+        """
+        select * from public.copyright_reports
+        where (%s::text is null or status = %s::text)
+        order by created_at desc limit %s
+        """,
+        (status, status, limit),
+    )
+
+
+def update_copyright_report(report_id: str, status: str) -> int:
+    return execute(
+        "update public.copyright_reports set status = %s where id = %s::uuid", (status, report_id)
+    )
+
+
+def insert_support_request(name: str, email: str, message: str) -> str:
+    row = fetch_one(
+        "insert into public.support_requests (name, email, message) values (%s, %s, %s) returning id",
+        (name, email, message),
+    )
+    return str(row["id"])
+
+
+def list_support_requests(status: str | None, limit: int) -> list[dict]:
+    return fetch_all(
+        """
+        select * from public.support_requests
+        where (%s::text is null or status = %s::text)
+        order by created_at desc limit %s
+        """,
+        (status, status, limit),
+    )
+
+
+def update_support_request(request_id: str, status: str) -> int:
+    return execute(
+        "update public.support_requests set status = %s where id = %s::uuid", (status, request_id)
+    )
+
+
+def notification_target(job_id: str) -> dict | None:
+    return fetch_one(
+        """
+        select p.email, p.display_name, up.email_notifications, s.title, s.id as song_id,
+               j.status, j.error
+        from public.processing_jobs j
+        join public.profiles p on p.id = j.user_id
+        join public.user_preferences up on up.user_id = j.user_id
+        join public.songs s on s.id = j.song_id
+        where j.id = %s::uuid
+        """,
+        (job_id,),
+    )
+
+
+def update_audio_file_size(file_id: str, size_bytes: int, duration: float | None) -> None:
+    execute(
+        "update public.audio_files set size_bytes = %s, duration_seconds = %s where id = %s::uuid",
+        (size_bytes, duration, file_id),
+    )
+
+
+def recording_count(song_id: str) -> int:
+    row = fetch_one(
+        "select count(*) as n from public.recordings where song_id = %s::uuid", (song_id,)
+    )
+    return int(row["n"])

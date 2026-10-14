@@ -9,7 +9,9 @@ import { KaraokePlayer } from "@/components/player/karaoke-player";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { StartProcessing } from "@/components/dashboard/start-processing";
-import { getSongMedia } from "@/lib/media";
+import { KeyTempoPanel } from "@/components/player/key-tempo-panel";
+import { buttonVariants } from "@/components/ui/button";
+import { getSongMedia, listExports } from "@/lib/media";
 import { createClient } from "@/lib/supabase/server";
 import { formatDuration, timeAgo } from "@/lib/utils";
 import { z } from "zod";
@@ -38,7 +40,14 @@ export default async function SongPage({ params }: { params: Promise<{ id: strin
     .limit(1);
   const job = ((jobData ?? [])[0] ?? null) as ProcessingJob | null;
 
+  const { data: auth } = await supabase.auth.getUser();
   const media = item.status === "ready" ? await getSongMedia(supabase, id, item.title) : null;
+  const exports = media ? await listExports(supabase, id, item.title) : [];
+  const { data: lyrics } = await supabase
+    .from("lyrics")
+    .select("content, offset_ms")
+    .eq("song_id", id)
+    .maybeSingle();
   const peaks = Array.isArray(item.peaks) ? item.peaks : [];
 
   const { data: prefs } = await supabase.from("user_preferences").select("default_volume").maybeSingle();
@@ -65,6 +74,8 @@ export default async function SongPage({ params }: { params: Promise<{ id: strin
         {item.status === "ready" && media ? (
           <KaraokePlayer
             songId={item.id}
+            userId={auth.user?.id ?? ""}
+            lyrics={lyrics ? { content: lyrics.content as string, offset_ms: Number(lyrics.offset_ms) } : null}
             duration={item.duration_seconds ?? 0}
             peaks={peaks}
             urls={{ instrumental: media.instrumental, vocals: media.vocals, original: media.original }}
@@ -107,6 +118,17 @@ export default async function SongPage({ params }: { params: Promise<{ id: strin
           </p>
         ) : null}
       </Card>
+
+      {item.status === "ready" && media ? (
+        <>
+          <KeyTempoPanel songId={item.id} hasVocals={Boolean(media.vocals)} initialExports={exports} />
+          <div className="flex justify-center">
+            <Link href={`/dashboard/studio/${item.id}`} className={buttonVariants({ variant: "outline", size: "lg" })}>
+              Record over this song
+            </Link>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

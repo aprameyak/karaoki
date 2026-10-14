@@ -8,14 +8,20 @@ This repo is the whole thing: the website, the API, the background worker and th
 
 ## What works right now
 
-Phase 1 is built and tested:
+Everything below is built and tested:
 
-- Landing page and the public pages (features, how it works, FAQ, contact, privacy, terms, copyright)
+- Landing page and the public pages (features, how it works, FAQ, contact form, privacy, terms, copyright)
+- Four tool pages (AI karaoke maker, vocal remover, MP3 to karaoke, pitch changer) and a blog with three guides
 - Sign up, log in, Google sign in, email verification, password reset
 - Dashboard with usage, storage and recent songs
 - Upload with drag and drop, progress, retries and a rights confirmation
 - Real vocal separation with Demucs, running in a background worker with real progress
 - Karaoki player: waveform, seek, volume, speed, instrumental / vocals / original, downloads, keyboard shortcuts
+- Key and tempo: change the key in semitones and the tempo independently, preview 30 seconds, export the full track
+- Lyrics: paste lyrics or import a timestamped .lrc file, synced highlighting, auto-scroll, full screen, timing offset and a stamp tool
+- Recording studio: record over the instrumental in the browser, adjust sync and volume, mix on the server, download, retake and remix
+- Admin dashboard: users, jobs, failed jobs with retry, processing time, storage, cost estimates, copyright reports and support requests
+- Email when a song finishes or fails (optional, needs a Resend key, and users can turn it off)
 - Private library: search, sort, favorites, rename, delete, pagination
 - Settings: profile, player volume, data export, account deletion
 - Free to use. Monthly limits (3 songs, 500 MB of storage) that can't be bypassed by sending requests at the same time
@@ -25,11 +31,10 @@ Phase 1 is built and tested:
 
 I'm saying this plainly so nobody assumes it exists:
 
-- Pitch and key changes, and exporting adjusted instrumentals. The player can change speed only.
-- Synced lyrics and the recording studio.
-- The admin dashboard.
-- The tool landing pages (/ai-karaoke-maker and friends), the blog, analytics and transactional email.
-- A contact form. The contact page shows an email address if you set one.
+- Automatic lyric timing from speech recognition. Lyrics are synced from LRC files or by stamping lines yourself.
+- A GPU worker setup is documented but not tested here.
+
+There is no billing on purpose. Karaoki is free, with monthly limits.
 
 The privacy policy, terms and copyright pages are drafts. Have a lawyer read them before you launch.
 
@@ -103,6 +108,7 @@ On a machine without a GPU, a three minute song takes a few minutes. Set `DEMUCS
 | `NEXT_PUBLIC_SUPABASE_URL` | web | Supabase API URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | web | Supabase anon key (safe for the browser) |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | web | Optional. Shown on the contact page |
+| `NEXT_PUBLIC_ANALYTICS_DOMAIN`, `NEXT_PUBLIC_ANALYTICS_SRC` | web | Optional. Turns on cookieless Plausible-style analytics on public pages |
 | `API_URL` | web | Where the web server reaches the API |
 | `DATABASE_URL` | api, worker | Postgres connection string |
 | `SUPABASE_URL` | api, worker | Supabase API URL |
@@ -113,6 +119,9 @@ On a machine without a GPU, a three minute song takes a few minutes. Set `DEMUCS
 | `DEMUCS_MODEL`, `DEMUCS_DEVICE` | worker | Model name and `cpu` / `cuda` |
 | `TEMP_DIR`, `JOB_TIMEOUT_SECONDS` | worker | Scratch space and per-job time limit |
 | `RATE_LIMIT_PER_MINUTE` | api | Per-user limit on processing requests |
+| `RESEND_API_KEY`, `EMAIL_FROM`, `SITE_URL` | api, worker | Optional. Enables the finished-job emails |
+| `ADMIN_COST_PER_COMPUTE_HOUR`, `ADMIN_COST_PER_GB_MONTH` | api | Optional. Rates for the admin cost estimates |
+| `MAX_RECORDING_BYTES`, `MAX_ACTIVE_EXPORTS`, `PREVIEW_RETENTION_HOURS` | api, worker | Limits for recordings and exports |
 | `STALE_UPLOAD_HOURS`, `AUDIT_RETENTION_DAYS` | worker | Cleanup windows |
 
 The service role key only lives in the API and worker. The web app never sees it.
@@ -137,9 +146,9 @@ The Python tests need a Postgres and a Redis. They create their own throwaway da
 
 Set `KARAOKI_TEST_PG` if Postgres isn't at `postgresql://postgres@localhost:55432`. The worker tests include a couple that run the real Demucs model on a short clip. Skip them with `-m "not slow"`.
 
-What the tests cover: upload validation, quota reservation under concurrent requests, row level security, the API endpoints, the job pipeline (success, failures, cancellation, crashes), the cleanup jobs and the real separation model. In the browser tests: the public pages, forms, redirects, SEO files and security headers.
+What the tests cover: upload validation, quota reservation under concurrent requests, row level security on every table, the API endpoints, the job pipeline (success, failures, cancellation, crashes), key and tempo changes (measured on the actual audio), recording mixes (delay, trim and gain measured on the actual audio), email, admin, the cleanup jobs and the real separation model. In the browser tests: the public pages, forms, redirects, SEO files and security headers.
 
-What they don't cover: a full run against a real Supabase project (sign in, signed uploads, storage) and the Docker images. I could not run those here.
+What they don't cover: a full run against a real Supabase project (sign in, signed uploads, storage), the browser microphone recorder, and the Docker images. I could not run those here.
 
 ## Deploying
 

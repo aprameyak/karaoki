@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from app import db, logs
 from app.config import get_settings
 from app.errors import ApiError, api_error_handler
-from app.routes import account, health, jobs, reports, songs
+from app.routes import account, admin, exports, health, jobs, recordings, reports, songs
 
 log = logging.getLogger("karaoki.api")
 
@@ -61,6 +61,9 @@ def create_app() -> FastAPI:
     app.include_router(jobs.router)
     app.include_router(account.router)
     app.include_router(reports.router)
+    app.include_router(exports.router)
+    app.include_router(recordings.router)
+    app.include_router(admin.router)
     return app
 
 

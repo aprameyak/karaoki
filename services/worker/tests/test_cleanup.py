@@ -92,4 +92,32 @@ def test_old_audit_events_are_pruned(make_user, sql):
 
 def test_run_once_reports_everything(storage):
     result = cleanup.run_once(storage)
-    assert result == {"stuck_jobs": 0, "stale_uploads": 0, "audit_events": 0}
+    assert result == {
+        "stuck_jobs": 0,
+        "stale_uploads": 0,
+        "stale_previews": 0,
+        "audit_events": 0,
+    }
+
+
+def test_old_previews_are_removed_but_full_exports_stay(
+    make_user, make_song, storage, sql, backdate
+):
+    user = make_user()
+    song = make_song(user, status="ready")
+
+    def export(preview: bool) -> str:
+        export_id = db.create_export(user, song, "instrumental", 2, 1.0, preview)
+        path = f"{user}/{song}/exports/{export_id}.mp3"
+        storage.put("stems", path, b"x")
+        file_id = db.insert_audio_file(song, user, "export", "stems", path, "mp3", 1, 5.0, 44100)
+        db.finish_export(export_id, "completed", None, file_id)
+        backdate("audio_exports", "audio_exports_updated", "created_at", export_id, 48)
+        return export_id
+
+    old_preview, old_full = export(True), export(False)
+    assert cleanup.remove_stale_previews(storage, 24) == 1
+    remaining = {str(r["id"]) for r in sql("select id from public.audio_exports")}
+    assert remaining == {old_full}
+    assert not storage.exists("stems", f"{user}/{song}/exports/{old_preview}.mp3")
+    assert storage.exists("stems", f"{user}/{song}/exports/{old_full}.mp3")

@@ -4,7 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
 const AUTH_PAGES = ["/login", "/signup"];
 
 export function redirectTarget(pathname: string, signedIn: boolean): string | null {
-  if (!signedIn && (pathname === "/dashboard" || pathname.startsWith("/dashboard/"))) {
+  const protectedArea = ["/dashboard", "/admin"].some((base) => pathname === base || pathname.startsWith(`${base}/`));
+  if (!signedIn && protectedArea) {
     return `/login?next=${encodeURIComponent(pathname)}`;
   }
   if (signedIn && AUTH_PAGES.includes(pathname)) {

@@ -12,7 +12,13 @@ const config: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@karaoki/shared"],
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      {
+        source: "/demo/:file*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+    ];
   },
 };
 

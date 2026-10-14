@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Gauge, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { LyricsPanel } from "@/components/player/lyrics-panel";
 import { Waveform } from "@/components/player/waveform";
 import {
   SPEEDS,
@@ -27,6 +28,8 @@ interface Downloads {
 
 interface Props {
   songId: string;
+  userId: string;
+  lyrics: { content: string; offset_ms: number } | null;
   duration: number;
   peaks: number[];
   urls: Record<Stem, string | null>;
@@ -36,7 +39,7 @@ interface Props {
 
 const STEMS: Stem[] = ["instrumental", "vocals", "original"];
 
-export function KaraokePlayer({ songId, duration, peaks, urls: initialUrls, downloads: initialDownloads, initialVolume = 0.8 }: Props) {
+export function KaraokePlayer({ songId, userId, lyrics, duration, peaks, urls: initialUrls, downloads: initialDownloads, initialVolume = 0.8 }: Props) {
   const els = useRef<Record<Stem, HTMLAudioElement | null>>({
     instrumental: null,
     vocals: null,
@@ -331,6 +334,8 @@ export function KaraokePlayer({ songId, duration, peaks, urls: initialUrls, down
       </div>
 
       {error ? <Alert>{error}</Alert> : null}
+
+      <LyricsPanel songId={songId} userId={userId} initial={lyrics} current={current} onSeek={seekTo} />
 
       <details className="rounded-2xl border border-line p-4 text-sm text-muted">
         <summary className="cursor-pointer text-ink">Keyboard shortcuts</summary>

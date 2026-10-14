@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Library, LayoutDashboard, Settings, UploadCloud } from "lucide-react";
+import { Library, LayoutDashboard, Settings, Shield, UploadCloud } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
@@ -16,11 +16,12 @@ function isActive(pathname: string, href: string, exact: boolean): boolean {
   return exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function SidebarNav() {
+export function SidebarNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const items = isAdmin ? [...ITEMS, { href: "/admin", label: "Admin", icon: Shield, exact: false }] : ITEMS;
   return (
     <nav aria-label="Dashboard" className="space-y-1">
-      {ITEMS.map(({ href, label, icon: Icon, exact }) => (
+      {items.map(({ href, label, icon: Icon, exact }) => (
         <Link
           key={href}
           href={href}

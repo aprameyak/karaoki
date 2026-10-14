@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, email")
+    .select("display_name, email, is_admin")
     .eq("id", data.user.id)
     .maybeSingle();
 
@@ -26,7 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col justify-between border-r border-line/60 p-5 md:flex">
         <div className="space-y-8">
           <Logo href="/dashboard" />
-          <SidebarNav />
+          <SidebarNav isAdmin={Boolean(profile?.is_admin)} />
         </div>
         <div className="space-y-3">
           <div className="px-2 text-sm">

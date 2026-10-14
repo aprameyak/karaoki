@@ -53,3 +53,32 @@ def create_report(
     )
     db.record_audit(None, "copyright.report", "copyright_report", report_id)
     return {"received": True}
+
+
+class SupportRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(min_length=1, max_length=200)
+    email: str = Field(max_length=254)
+    message: str = Field(min_length=10, max_length=5000)
+
+    @field_validator("email")
+    @classmethod
+    def valid_email(cls, value: str) -> str:
+        if not EMAIL.match(value):
+            raise ValueError("Enter a valid email address")
+        return value.lower()
+
+
+@router.post("/support-requests", status_code=201)
+def create_support_request(
+    request: SupportRequest,
+    x_client_ip: str | None = Header(default=None),
+    redis: Redis = Depends(get_redis),
+):
+    source = (x_client_ip or "unknown")[:64]
+    rate_limit.hit(redis, f"support:{source}", 5, window=3600)
+    rate_limit.hit(redis, "support:all", 300, window=3600)
+    request_id = db.insert_support_request(request.name, request.email, request.message)
+    db.record_audit(None, "support.request", "support_request", request_id)
+    return {"received": True}

@@ -53,7 +53,7 @@ class FakeStorage:
     def exists(self, bucket: str, path: str) -> bool:
         return self._file(bucket, path).exists()
 
-    def signed_url(self, bucket: str, path: str, ttl: int) -> str:
+    def signed_url(self, bucket: str, path: str, ttl: int, download: str | None = None) -> str:
         return str(self._file(bucket, path))
 
     def object_size(self, bucket: str, path: str) -> int | None:
@@ -138,7 +138,9 @@ def clean_state(database, redis_server):
     auth.clear_cache()
     db.close_pool()
     with psycopg.connect(TEST_URL, autocommit=True) as conn:
-        conn.execute("truncate auth.users, public.audit_events, public.copyright_reports cascade")
+        conn.execute(
+            "truncate auth.users, public.audit_events, public.copyright_reports, public.support_requests cascade"
+        )
         conn.execute("truncate public.plans cascade")
         for row in PLAN_ROWS:
             conn.execute(f"insert into public.plans values ({', '.join(['%s'] * len(row))})", row)

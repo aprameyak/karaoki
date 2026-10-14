@@ -140,6 +140,79 @@ test.describe("public pages", () => {
   });
 });
 
+test.describe("tool pages and blog", () => {
+  for (const [path, heading] of [
+    ["/ai-karaoke-maker", "AI karaoke maker"],
+    ["/vocal-remover", "Online vocal remover"],
+    ["/mp3-to-karaoke", "Convert an MP3 to a karaoke track"],
+    ["/pitch-changer", "Change a song's key without changing its speed"],
+  ] as const) {
+    test(`${path} has its own content and structured data`, async ({ page }) => {
+      const res = await open(page, path);
+      expect(res?.status()).toBe(200);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
+      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", new RegExp(`${path}$`));
+      await expect(page.getByRole("link", { name: "Try it free" })).toHaveAttribute("href", "/signup");
+      const data = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent()) ?? "{}");
+      const types = (data["@graph"] as { "@type": string }[]).map((item) => item["@type"]);
+      expect(types).toEqual(expect.arrayContaining(["HowTo", "FAQPage"]));
+      expect(await page.locator("h1").count()).toBe(1);
+    });
+  }
+
+  test("the blog lists every article and each one opens", async ({ page }) => {
+    await open(page, "/blog");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Blog");
+    const links = page.locator("article h2 a");
+    expect(await links.count()).toBe(3);
+    await links.first().click();
+    await expect(page).toHaveURL(/\/blog\//);
+    await expect(page.locator("article h1")).toBeVisible();
+    const data = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent()) ?? "{}");
+    expect(data["@type"]).toBe("Article");
+    expect(data.headline).toBeTruthy();
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute("content", "article");
+  });
+
+  test("an unknown article is a 404", async ({ page }) => {
+    const res = await page.goto("/blog/not-a-real-article");
+    expect(res?.status()).toBe(404);
+  });
+
+  test("the footer links to the tools and the blog", async ({ page }) => {
+    await open(page, "/");
+    const footer = page.getByRole("contentinfo");
+    for (const name of ["AI karaoke maker", "Vocal remover", "MP3 to karaoke", "Pitch changer", "Blog"]) {
+      await expect(footer.getByRole("link", { name })).toBeVisible();
+    }
+  });
+
+  test("the contact form needs a real message", async ({ page }) => {
+    await open(page, "/contact");
+    await page.getByLabel("Your name").fill("Sam");
+    await page.getByLabel("Your email").fill("sam@example.com");
+    await page.getByLabel("How can we help?").fill("short");
+    await page.getByRole("button", { name: "Send message" }).click();
+    await expect(page.getByText("Thanks, your message was sent")).toHaveCount(0);
+  });
+
+  test("the sitemap lists the tools and articles", async ({ request }) => {
+    const text = await (await request.get("/sitemap.xml")).text();
+    for (const path of ["/ai-karaoke-maker", "/vocal-remover", "/mp3-to-karaoke", "/pitch-changer", "/blog", "/blog/how-ai-vocal-removal-works"]) {
+      expect(text).toContain(path);
+    }
+  });
+
+  test("tool pages do not overflow on a phone", async ({ browser }) => {
+    const page = await (await browser.newContext({ viewport: { width: 360, height: 740 } })).newPage();
+    for (const path of ["/ai-karaoke-maker", "/blog", "/blog/recording-over-a-backing-track", "/pitch-changer"]) {
+      await open(page, path);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow, path).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
 test.describe("authentication pages", () => {
   test("log in form validates input", async ({ page }) => {
     await open(page, "/login");
@@ -184,8 +257,8 @@ test.describe("authentication pages", () => {
 });
 
 test.describe("protected areas", () => {
-  test("dashboard pages redirect signed-out visitors to log in", async ({ page }) => {
-    for (const path of ["/dashboard", "/dashboard/upload", "/dashboard/library", "/dashboard/settings"]) {
+  test("dashboard and admin pages redirect signed-out visitors to log in", async ({ page }) => {
+    for (const path of ["/dashboard", "/dashboard/upload", "/dashboard/library", "/dashboard/settings", "/admin", "/admin/jobs"]) {
       await page.goto(path);
       await expect(page).toHaveURL(new RegExp(`/login\\?next=${encodeURIComponent(path).replace(/%/g, "%")}`));
     }
@@ -204,6 +277,17 @@ test.describe("protected areas", () => {
       request.post(`/api/jobs/${id}/retry`),
       request.get("/api/account/export"),
       request.delete("/api/account"),
+      request.post(`/api/songs/${id}/exports`, { data: { semitones: 1 } }),
+      request.get(`/api/exports/${id}`),
+      request.delete(`/api/exports/${id}`),
+      request.post(`/api/songs/${id}/recordings/upload`, { data: { extension: "webm" } }),
+      request.post(`/api/songs/${id}/recordings`, { data: {} }),
+      request.get(`/api/recordings/${id}`),
+      request.post(`/api/recordings/${id}/remix`, { data: {} }),
+      request.delete(`/api/recordings/${id}`),
+      request.post(`/api/admin/jobs/${id}/retry`),
+      request.post(`/api/admin/reports/${id}`, { data: { status: "open" } }),
+      request.post(`/api/admin/support/${id}`, { data: { status: "open" } }),
     ];
     for (const res of await Promise.all(calls)) {
       expect(res.status()).toBe(401);

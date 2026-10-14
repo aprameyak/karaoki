@@ -41,8 +41,17 @@ export function ProfileForm({ userId, displayName }: { userId: string; displayNa
   );
 }
 
-export function PreferencesForm({ userId, defaultVolume }: { userId: string; defaultVolume: number }) {
+export function PreferencesForm({
+  userId,
+  defaultVolume,
+  emailNotifications,
+}: {
+  userId: string;
+  defaultVolume: number;
+  emailNotifications: boolean;
+}) {
   const [volume, setVolume] = useState(defaultVolume);
+  const [notify, setNotify] = useState(emailNotifications);
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   async function save(event: React.FormEvent) {
@@ -51,7 +60,7 @@ export function PreferencesForm({ userId, defaultVolume }: { userId: string; def
     const supabase = createClient();
     const { error } = await supabase
       .from("user_preferences")
-      .update({ default_volume: volume })
+      .update({ default_volume: volume, email_notifications: notify })
       .eq("user_id", userId);
     setState(error ? "error" : "saved");
   }
@@ -71,10 +80,22 @@ export function PreferencesForm({ userId, defaultVolume }: { userId: string; def
           className="h-2 w-full accent-primary"
         />
       </div>
+      <label className="flex items-start gap-3 text-sm">
+        <input
+          type="checkbox"
+          checked={notify}
+          onChange={(event) => setNotify(event.target.checked)}
+          className="mt-1 h-4 w-4 accent-primary"
+        />
+        <span>
+          Email me when a song finishes processing or fails.
+          <span className="block text-xs text-muted">We only send these emails. No marketing.</span>
+        </span>
+      </label>
       {state === "saved" ? <Alert tone="success">Saved.</Alert> : null}
-      {state === "error" ? <Alert>Could not save your preference.</Alert> : null}
+      {state === "error" ? <Alert>Could not save your preferences.</Alert> : null}
       <Button type="submit" variant="secondary" disabled={state === "saving"}>
-        Save preference
+        Save preferences
       </Button>
     </form>
   );

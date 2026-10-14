@@ -34,12 +34,29 @@ def remove_stale_uploads(storage: Storage, hours: int) -> int:
     return removed
 
 
+def remove_stale_previews(storage: Storage, hours: int) -> int:
+    removed = 0
+    for row in db.stale_previews(hours):
+        try:
+            if row["audio_file_id"]:
+                file = db.get_audio_file(str(row["audio_file_id"]))
+                if file:
+                    storage.remove(file["bucket"], [file["path"]])
+                    db.delete_audio_file(str(file["id"]))
+            db.delete_export(str(row["id"]))
+            removed += 1
+        except Exception:
+            log.exception("could not remove a stale preview")
+    return removed
+
+
 def run_once(storage: Storage | None = None) -> dict:
     settings = get_settings()
     storage = storage or build_storage()
     result = {
         "stuck_jobs": reap_stuck_jobs(),
         "stale_uploads": remove_stale_uploads(storage, settings.stale_upload_hours),
+        "stale_previews": remove_stale_previews(storage, settings.preview_retention_hours),
         "audit_events": db.prune_audit_events(settings.audit_retention_days),
     }
     log.info("cleanup finished", extra={"fields": result})

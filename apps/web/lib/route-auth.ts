@@ -36,8 +36,13 @@ export async function readJson<T extends z.ZodType>(request: Request, schema: T)
   return parsed.data;
 }
 
-export async function proxy(path: string, method: "GET" | "POST" | "DELETE", token: string): Promise<Response> {
-  const res = await callApi(path, { method, token });
+export async function proxy(
+  path: string,
+  method: "GET" | "POST" | "DELETE",
+  token: string,
+  body?: unknown,
+): Promise<Response> {
+  const res = await callApi(path, { method, token, body });
   if (!res.ok) throw await readError(res);
   return new Response(await res.text(), {
     status: res.status,

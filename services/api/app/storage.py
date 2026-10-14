@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import quote
 
 import httpx
 
@@ -7,7 +8,7 @@ from app.config import get_settings
 
 
 class Storage(Protocol):
-    def signed_url(self, bucket: str, path: str, ttl: int) -> str: ...
+    def signed_url(self, bucket: str, path: str, ttl: int, download: str | None = None) -> str: ...
 
     def object_size(self, bucket: str, path: str) -> int | None: ...
 
@@ -27,7 +28,7 @@ class SupabaseStorage:
         self.headers = {"apikey": service_key, "Authorization": f"Bearer {service_key}"}
         self.client = client or httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0))
 
-    def signed_url(self, bucket: str, path: str, ttl: int) -> str:
+    def signed_url(self, bucket: str, path: str, ttl: int, download: str | None = None) -> str:
         res = self.client.post(
             f"{self.base}/object/sign/{bucket}/{path}",
             headers=self.headers,
@@ -35,11 +36,13 @@ class SupabaseStorage:
         )
         res.raise_for_status()
         signed = res.json()["signedURL"]
-        if signed.startswith("http"):
-            return signed
-        if not signed.startswith("/storage/v1"):
-            signed = f"/storage/v1{signed}"
-        return f"{self.root}{signed}"
+        if not signed.startswith("http"):
+            if not signed.startswith("/storage/v1"):
+                signed = f"/storage/v1{signed}"
+            signed = f"{self.root}{signed}"
+        if download:
+            signed = f"{signed}&download={quote(download)}"
+        return signed
 
     def object_size(self, bucket: str, path: str) -> int | None:
         res = self.client.head(f"{self.base}/object/{bucket}/{path}", headers=self.headers)

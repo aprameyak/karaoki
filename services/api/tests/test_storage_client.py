@@ -115,3 +115,15 @@ def test_list_prefix_walks_folders():
         router.post(f"{BASE}/storage/v1/object/list/originals").mock(side_effect=answer)
         found = storage().list_prefix("originals", "user")
     assert sorted(found) == ["user/song1/original.mp3", "user/song2/a.mp3", "user/song2/b.mp3"]
+
+
+def test_signed_url_can_force_a_download_name():
+    with respx.mock() as router:
+        router.post(f"{BASE}/storage/v1/object/sign/stems/a.mp3").mock(
+            return_value=httpx.Response(200, json={"signedURL": "/object/sign/stems/a.mp3?token=t"})
+        )
+        url = storage().signed_url("stems", "a.mp3", 60, download="My Song (vocals).mp3")
+    assert (
+        url
+        == f"{BASE}/storage/v1/object/sign/stems/a.mp3?token=t&download=My%20Song%20%28vocals%29.mp3"
+    )

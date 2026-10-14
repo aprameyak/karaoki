@@ -1,34 +1,11 @@
 import httpx
 import pytest
 import respx
-from fastapi.testclient import TestClient
 from redis import Redis
 from rq import Queue
 
 from app import db
-from app.auth import current_user
-from app.deps import get_redis, get_storage
-from app.main import create_app
-
-
-@pytest.fixture
-def app(storage):
-    application = create_app()
-    application.dependency_overrides[get_storage] = lambda: storage
-    return application
-
-
-@pytest.fixture
-def client(app):
-    return TestClient(app, raise_server_exceptions=False)
-
-
-@pytest.fixture
-def login(app):
-    def as_user(user_id: str) -> None:
-        app.dependency_overrides[current_user] = lambda: {"id": user_id, "email": None}
-
-    return as_user
+from app.deps import get_redis
 
 
 @pytest.fixture

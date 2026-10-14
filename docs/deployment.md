@@ -12,9 +12,24 @@
 
 - Build the images from `docker/api.Dockerfile` and `docker/worker.Dockerfile`.
 - Give both the same `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `REDIS_URL`. The API also needs `SUPABASE_ANON_KEY` and `WEB_ORIGIN`.
-- Run one or more worker containers. Add `DEMUCS_DEVICE=cuda` on GPU hosts. Run one `cleanup` container.
+- Run one or more worker containers. The worker listens to the `separation`, `adjust` and `mix` queues. Add `DEMUCS_DEVICE=cuda` on GPU hosts. Run one `cleanup` container.
 - Put the API behind HTTPS. Only the web server needs to reach it, so keep it off the public internet if you can.
 - Point a health check at `GET /health`. It returns 503 if the database or Redis is down.
+
+## Admin access
+
+Sign up normally, then make yourself an admin with SQL in the Supabase SQL editor:
+
+```sql
+update public.profiles set is_admin = true where email = 'you@example.com';
+```
+
+An Admin link then appears in the dashboard sidebar.
+
+## Email and analytics (optional)
+
+- Set `RESEND_API_KEY`, `EMAIL_FROM` (a sender on a domain you verified in Resend) and `SITE_URL` on the API and worker to send finished-job emails.
+- Set `NEXT_PUBLIC_ANALYTICS_DOMAIN` on the web app to load cookieless analytics on the public pages.
 
 ## Web
 

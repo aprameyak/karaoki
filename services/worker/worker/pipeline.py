@@ -6,6 +6,7 @@ from pathlib import Path
 from app import db
 from app.config import get_settings
 from app.errors import ApiError
+from app.notifications import notify_job_finished
 from app.storage import Storage
 from app.validation import CONTENT_TYPES, inspect_audio
 
@@ -123,17 +124,20 @@ def run_job(job_id: str, storage: Storage, separator: Separator = run_demucs) ->
         check_active(job_id)
         db.register_stems(song_id, user_id, stems, peak_values, probe.duration)
         db.finish_job(job_id, "completed")
+        safe_notify(job_id)
     except JobCanceled:
         remove_outputs(storage, uploaded)
         log.info("job canceled", extra={"fields": {"job_id": job_id}})
     except (JobFailure, audio.MediaError) as exc:
         remove_outputs(storage, uploaded)
         db.finish_job(job_id, "failed", str(exc))
+        safe_notify(job_id)
         log.warning("job failed", extra={"fields": {"job_id": job_id, "reason": str(exc)}})
     except Exception:
         remove_outputs(storage, uploaded)
         log.exception("job crashed", extra={"fields": {"job_id": job_id}})
         db.finish_job(job_id, "failed", "Processing failed unexpectedly. Please try again.")
+        safe_notify(job_id)
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
 
@@ -145,3 +149,10 @@ def remove_outputs(storage: Storage, paths: list[str]) -> None:
         storage.remove("stems", paths)
     except Exception:
         log.exception("could not remove partial outputs")
+
+
+def safe_notify(job_id: str) -> None:
+    try:
+        notify_job_finished(job_id)
+    except Exception:
+        log.exception("could not send the finished-job email")

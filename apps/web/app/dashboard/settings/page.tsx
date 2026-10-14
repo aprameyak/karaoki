@@ -11,7 +11,7 @@ export default async function SettingsPage() {
   const { data: auth } = await supabase.auth.getUser();
   const userId = auth.user?.id ?? "";
   const account = await loadAccount(supabase, userId);
-  const { data: prefs } = await supabase.from("user_preferences").select("default_volume").maybeSingle();
+  const { data: prefs } = await supabase.from("user_preferences").select("default_volume, email_notifications").maybeSingle();
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -26,8 +26,12 @@ export default async function SettingsPage() {
       </Card>
 
       <Card>
-        <h2 className="mb-4 text-lg font-semibold">Player</h2>
-        <PreferencesForm userId={userId} defaultVolume={prefs?.default_volume ? Number(prefs.default_volume) : 0.8} />
+        <h2 className="mb-4 text-lg font-semibold">Preferences</h2>
+        <PreferencesForm
+          userId={userId}
+          defaultVolume={prefs?.default_volume ? Number(prefs.default_volume) : 0.8}
+          emailNotifications={prefs?.email_notifications ?? true}
+        />
       </Card>
 
       <Card>
