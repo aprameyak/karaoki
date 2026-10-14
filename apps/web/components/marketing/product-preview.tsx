@@ -37,7 +37,7 @@ export function ProductPreview() {
           </span>
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
-          <span className="rounded-full bg-primary/20 px-3 py-1 text-primary">Instrumental</span>
+          <span className="rounded-full bg-primary/20 px-3 py-1 text-link">Instrumental</span>
           <span className="rounded-full bg-surface-2 px-3 py-1 text-muted">Vocals</span>
           <span className="rounded-full bg-surface-2 px-3 py-1 text-muted">Original</span>
         </div>

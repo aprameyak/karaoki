@@ -21,7 +21,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
       footer={
         <>
           Already have an account?{" "}
-          <Link href={`/login?next=${encodeURIComponent(next)}`} className="text-primary hover:underline">
+          <Link href={`/login?next=${encodeURIComponent(next)}`} className="text-link hover:underline">
             Log in
           </Link>
         </>

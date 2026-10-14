@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { readApiError } from "@/lib/messages";
+import { postJson } from "@/lib/http";
 
 export function SupportForm() {
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -14,13 +14,13 @@ export function SupportForm() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setState("sending");
-    const res = await fetch("/api/support", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: form.get("name"), email: form.get("email"), message: form.get("message") }),
+    const out = await postJson("/api/support", {
+      name: form.get("name"),
+      email: form.get("email"),
+      message: form.get("message"),
     });
-    if (!res.ok) {
-      setMessage((await readApiError(res)).message);
+    if (!out.ok) {
+      setMessage(out.message);
       setState("error");
       return;
     }

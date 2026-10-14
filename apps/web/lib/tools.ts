@@ -27,7 +27,7 @@ export const AI_KARAOKE_MAKER: ToolContent = {
     { title: "Honest progress", text: "The progress bar shows what the separation job is really doing, not a timer." },
   ],
   limits: [
-    `Free accounts can process ${limits.songs} songs a month, with files up to ${limits.size} and ${limits.minutes} minutes long.`,
+    `Each account can process ${limits.songs} songs a month, with files up to ${limits.size} and ${limits.minutes} minutes long.`,
     "Results depend on the song. Busy mixes and heavy reverb can leave faint traces of the original vocal.",
     "Karaoki does not provide songs or lyrics. Bring your own and only use music you have the right to use.",
   ],
@@ -64,7 +64,7 @@ export const VOCAL_REMOVER: ToolContent = {
   limits: [
     "No vocal remover is perfect. Reverb, harmonies and loud, busy mixes can leave traces of the vocal or move some instruments into the vocal track.",
     "Removing the vocals from a recording does not remove the copyright in it. Only process music you have the right to use.",
-    `The free plan accepts files up to ${limits.size} and ${limits.minutes} minutes long.`,
+    `Files can be up to ${limits.size} and ${limits.minutes} minutes long.`,
   ],
   faqs: [
     { question: "What file types can I use?", answer: "MP3, WAV, M4A and FLAC. Karaoki checks the audio itself, so renaming a file does not change how it is treated." },
@@ -97,7 +97,7 @@ export const MP3_TO_KARAOKE: ToolContent = {
     { title: "Free to use", text: `Process up to ${limits.songs} songs a month for free.` },
   ],
   limits: [
-    `Files can be up to ${limits.size} and ${limits.minutes} minutes long on the free plan.`,
+    `Files can be up to ${limits.size} and ${limits.minutes} minutes long.`,
     "A very low bitrate MP3 limits how clean the result can be.",
     "You must confirm that you have the right to process each file you upload.",
   ],

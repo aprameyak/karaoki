@@ -16,7 +16,7 @@ export default function ForgotPasswordPage() {
       title="Forgot your password?"
       subtitle="Enter your email and we will send you a link to set a new one."
       footer={
-        <Link href="/login" className="text-primary hover:underline">
+        <Link href="/login" className="text-link hover:underline">
           Back to log in
         </Link>
       }

@@ -23,6 +23,7 @@ interface Props {
 
 const MAX_LENGTH = 100_000;
 const MAX_FILE_BYTES = 200_000;
+const MAX_OFFSET_MS = 10_000;
 
 export function LyricsPanel({ songId, userId, initial, current, onSeek }: Props) {
   const box = useRef<HTMLDivElement>(null);
@@ -61,8 +62,19 @@ export function LyricsPanel({ songId, userId, initial, current, onSeek }: Props)
   }, [index]);
 
   async function toggleFullscreen() {
-    if (document.fullscreenElement) await document.exitFullscreen();
-    else await box.current?.requestFullscreen();
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await box.current?.requestFullscreen();
+    } catch {
+      setMessage({ tone: "danger", text: "Your browser would not enter full screen." });
+    }
+  }
+
+  function cancelEditing() {
+    setDraft(saved?.content ?? "");
+    setOffsetMs(saved?.offset_ms ?? 0);
+    setMessage(null);
+    setEditing(false);
   }
 
   async function save() {
@@ -108,17 +120,23 @@ export function LyricsPanel({ songId, userId, initial, current, onSeek }: Props)
     setMessage(null);
   }
 
-  async function importFile(file: File | undefined) {
+  async function importFile(input: HTMLInputElement) {
+    const file = input.files?.[0];
+    input.value = "";
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
       setMessage({ tone: "danger", text: "That file is too large for lyrics." });
       return;
     }
-    const text = await file.text();
-    const imported = parseLrc(text);
-    setDraft(text);
-    setOffsetMs(imported.offsetMs);
-    setMessage(null);
+    try {
+      const text = await file.text();
+      const imported = parseLrc(text);
+      setDraft(text);
+      setOffsetMs(Math.max(-MAX_OFFSET_MS, Math.min(MAX_OFFSET_MS, imported.offsetMs)));
+      setMessage(null);
+    } catch {
+      setMessage({ tone: "danger", text: "Could not read that file." });
+    }
   }
 
   function stamp() {
@@ -163,7 +181,7 @@ export function LyricsPanel({ songId, userId, initial, current, onSeek }: Props)
             accept=".lrc,.txt,text/plain"
             className="sr-only"
             aria-label="Import a lyrics file"
-            onChange={(event) => void importFile(event.target.files?.[0])}
+            onChange={(event) => void importFile(event.currentTarget)}
           />
         </div>
         <div>
@@ -174,8 +192,8 @@ export function LyricsPanel({ songId, userId, initial, current, onSeek }: Props)
           <input
             id="lyrics-offset"
             type="range"
-            min={-5000}
-            max={5000}
+            min={-MAX_OFFSET_MS}
+            max={MAX_OFFSET_MS}
             step={50}
             value={offsetMs}
             onChange={(event) => setOffsetMs(Number(event.target.value))}
@@ -188,7 +206,7 @@ export function LyricsPanel({ songId, userId, initial, current, onSeek }: Props)
           <Button type="button" disabled={busy} onClick={() => void save()}>
             Save lyrics
           </Button>
-          <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+          <Button type="button" variant="ghost" onClick={cancelEditing}>
             Cancel
           </Button>
           {saved ? (
@@ -268,6 +286,7 @@ export function LyricsPanel({ songId, userId, initial, current, onSeek }: Props)
         </p>
       ) : null}
       {fullscreen ? <p className="mt-4 text-center text-sm text-muted">Space plays and pauses. Escape exits.</p> : null}
+      {message ? <Alert className="mt-3" tone={message.tone}>{message.text}</Alert> : null}
     </section>
   );
 }

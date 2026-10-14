@@ -17,10 +17,10 @@ const items = [
 export function FreePlanCard() {
   return (
     <Card className="mx-auto max-w-xl border-primary/60">
-      <h3 className="text-xl font-semibold">Free for everyone</h3>
+      <p className="text-xl font-semibold">Free for everyone</p>
       <p className="mt-4">
         <span className="text-5xl font-semibold">$0</span>
-        <span className="text-muted"> / always</span>
+        <span className="text-muted"> to use</span>
       </p>
       <ul className="mt-6 space-y-3 text-sm">
         {items.map((item) => (

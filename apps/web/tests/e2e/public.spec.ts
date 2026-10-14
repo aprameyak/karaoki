@@ -59,12 +59,12 @@ test.describe("landing page", () => {
 
   test("lets you switch between the demo versions", async ({ page }) => {
     await open(page, "/");
-    const before = page.getByRole("tab", { name: /Before/ });
-    const after = page.getByRole("tab", { name: /After/ });
-    await expect(before).toHaveAttribute("aria-selected", "true");
+    const before = page.getByRole("button", { name: /Before/ });
+    const after = page.getByRole("button", { name: /After/ });
+    await expect(before).toHaveAttribute("aria-pressed", "true");
     await after.click();
-    await expect(after).toHaveAttribute("aria-selected", "true");
-    await expect(before).toHaveAttribute("aria-selected", "false");
+    await expect(after).toHaveAttribute("aria-pressed", "true");
+    await expect(before).toHaveAttribute("aria-pressed", "false");
   });
 
   test("serves the demo audio files", async ({ request }) => {
@@ -98,7 +98,7 @@ test.describe("public pages", () => {
 
   test("pricing says Karaoki is free and has no paid plan", async ({ page }) => {
     await open(page, "/pricing");
-    await expect(page.getByRole("heading", { name: "Free for everyone" })).toBeVisible();
+    await expect(page.getByText("Free for everyone")).toBeVisible();
     await expect(page.getByText("$0")).toBeVisible();
     await expect(page.getByRole("link", { name: "Start free" })).toHaveAttribute("href", "/signup");
     const text = (await page.locator("main").innerText()).toLowerCase();
@@ -179,6 +179,24 @@ test.describe("tool pages and blog", () => {
     expect(res?.status()).toBe(404);
   });
 
+  test("the home page links to every tool", async ({ page }) => {
+    await open(page, "/");
+    for (const href of ["/ai-karaoke-maker", "/vocal-remover", "/mp3-to-karaoke", "/pitch-changer"]) {
+      await expect(page.locator(`main a[href="${href}"]`)).toHaveCount(1);
+    }
+  });
+
+  test("the home page structured data only describes the questions that are shown", async ({ page }) => {
+    await open(page, "/");
+    const data = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent()) ?? "{}");
+    const faq = (data["@graph"] as { "@type": string; mainEntity?: { name: string }[] }[]).find((item) => item["@type"] === "FAQPage");
+    const shown = await page.locator("details summary").allTextContents();
+    expect(faq?.mainEntity?.length).toBe(shown.length);
+    for (const question of faq?.mainEntity ?? []) {
+      expect(shown.some((text) => text.includes(question.name))).toBe(true);
+    }
+  });
+
   test("the footer links to the tools and the blog", async ({ page }) => {
     await open(page, "/");
     const footer = page.getByRole("contentinfo");
@@ -250,6 +268,13 @@ test.describe("authentication pages", () => {
     );
   });
 
+  test("auth pages have a main landmark for the skip link", async ({ page }) => {
+    for (const path of ["/login", "/signup", "/forgot-password"]) {
+      await open(page, path);
+      await expect(page.locator("main#main")).toHaveCount(1);
+    }
+  });
+
   test("auth pages are not indexed", async ({ page }) => {
     await open(page, "/login");
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
@@ -296,6 +321,38 @@ test.describe("protected areas", () => {
   });
 });
 
+test.describe("cross-site requests", () => {
+  const body = { name: "Sam", email: "sam@example.com", message: "This should never get through" };
+
+  test("are refused for state-changing api calls", async ({ request }) => {
+    for (const [method, path] of [
+      ["post", "/api/support"],
+      ["post", "/api/copyright"],
+      ["post", "/api/uploads"],
+      ["delete", "/api/account"],
+    ] as const) {
+      const res = await request[method](path, { data: body, headers: { origin: "https://evil.example" } });
+      expect(res.status(), path).toBe(403);
+      expect((await res.json()).error.code).toBe("forbidden_origin");
+    }
+  });
+
+  test("are refused when the browser marks them cross-site", async ({ request }) => {
+    const res = await request.post("/api/support", { data: body, headers: { "sec-fetch-site": "cross-site" } });
+    expect(res.status()).toBe(403);
+  });
+
+  test("do not affect requests from the site itself", async ({ request, baseURL }) => {
+    const res = await request.post("/api/support", { data: { name: "" }, headers: { origin: baseURL ?? "" } });
+    expect(res.status()).toBe(400);
+  });
+
+  test("do not affect plain reads", async ({ request }) => {
+    const res = await request.get("/api/health", { headers: { origin: "https://evil.example" } });
+    expect(res.status()).toBe(200);
+  });
+});
+
 test.describe("seo and security", () => {
   test("sitemap lists the public pages and skips private ones", async ({ request }) => {
     const text = await (await request.get("/sitemap.xml")).text();
@@ -321,6 +378,22 @@ test.describe("seo and security", () => {
     expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
     expect(headers["permissions-policy"]).toContain("microphone=(self)");
     expect(headers["x-powered-by"]).toBeUndefined();
+  });
+
+  test("the content security policy locks down framing, objects and the base url", async ({ request }) => {
+    const res = await request.get("/");
+    const policy = res.headers()["content-security-policy"] ?? "";
+    for (const part of ["default-src 'self'", "frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'"]) {
+      expect(policy).toContain(part);
+    }
+    expect(policy).toContain("http://127.0.0.1:54321");
+    expect(res.headers()["strict-transport-security"]).toContain("max-age=");
+  });
+
+  test("the app reports that it is healthy", async ({ request }) => {
+    const res = await request.get("/api/health");
+    expect(res.status()).toBe(200);
+    expect(await res.json()).toEqual({ status: "ok" });
   });
 
   test("the social preview image is generated", async ({ request }) => {

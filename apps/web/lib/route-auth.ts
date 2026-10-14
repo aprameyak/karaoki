@@ -49,3 +49,11 @@ export async function proxy(
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
+
+
+export function internalHeaders(clientAddress: string): Record<string, string> {
+  const headers: Record<string, string> = { "X-Client-IP": clientAddress };
+  const secret = process.env.INTERNAL_API_SECRET;
+  if (secret) headers["X-Internal-Secret"] = secret;
+  return headers;
+}

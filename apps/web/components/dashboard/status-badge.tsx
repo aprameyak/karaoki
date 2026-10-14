@@ -1,4 +1,4 @@
-import type { JobStatus, SongStatus } from "@karaoki/shared";
+import type { SongStatus } from "@karaoki/shared";
 import { Badge } from "@/components/ui/badge";
 
 const SONG: Record<SongStatus, { label: string; tone: "neutral" | "info" | "success" | "danger" }> = {
@@ -14,6 +14,3 @@ export function SongStatusBadge({ status }: { status: SongStatus }) {
   return <Badge tone={tone}>{label}</Badge>;
 }
 
-export function isFinished(status: JobStatus): boolean {
-  return status === "completed" || status === "failed" || status === "canceled";
-}

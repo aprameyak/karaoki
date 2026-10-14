@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { readApiError } from "@/lib/messages";
+import { postJson } from "@/lib/http";
 
 export function StartProcessing({ songId }: { songId: string }) {
   const router = useRouter();
@@ -15,9 +15,9 @@ export function StartProcessing({ songId }: { songId: string }) {
     if (busy) return;
     setBusy(true);
     setError(null);
-    const res = await fetch(`/api/songs/${songId}/process`, { method: "POST" });
-    if (!res.ok) {
-      setError((await readApiError(res)).message);
+    const out = await postJson(`/api/songs/${songId}/process`);
+    if (!out.ok) {
+      setError(out.message);
       setBusy(false);
       return;
     }

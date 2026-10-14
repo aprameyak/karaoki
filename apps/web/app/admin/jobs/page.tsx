@@ -25,7 +25,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
             aria-current={item === filter ? "page" : undefined}
             className={cn(
               "rounded-full px-4 py-2 text-sm capitalize",
-              item === filter ? "bg-gradient-to-r from-primary to-accent text-white" : "bg-surface-2 text-muted hover:text-ink",
+              item === filter ? "bg-gradient-to-r from-primary-strong to-accent-strong text-white" : "bg-surface-2 text-muted hover:text-ink",
             )}
           >
             {item}

@@ -63,7 +63,7 @@ function json(body: unknown, headers: Record<string, string> = {}) {
 }
 
 function mockApi(status = 200, body: unknown = { ok: true }) {
-  return vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(body), { status }));
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify(body), { status }));
 }
 
 beforeEach(() => {
@@ -127,8 +127,9 @@ describe("proxied routes", () => {
 
   it("send recordings and remixes to the API", async () => {
     const fetchMock = mockApi(202, { recording: { id: "r1" } });
-    await createRecording(json({ path: "a/b/take.webm", offsetMs: -40 }), ctx);
-    await remix(json({ offsetMs: 100 }), ctx);
+    const created = await createRecording(json({ path: "a/b/take.webm", offsetMs: -40 }), ctx);
+    const remixed = await remix(json({ offsetMs: 100 }), ctx);
+    expect([created.status, remixed.status]).toEqual([202, 202]);
     expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
       `http://api.test/v1/songs/${ID}/recordings`,
       `http://api.test/v1/recordings/${ID}/remix`,
@@ -144,9 +145,12 @@ describe("proxied routes", () => {
 
   it("read, delete and look up exports", async () => {
     const fetchMock = mockApi(200, { export: {} });
-    await getExport(new Request("http://localhost"), ctx);
-    await deleteExport(new Request("http://localhost"), ctx);
-    await deleteRecording(new Request("http://localhost"), ctx);
+    const results = [
+      await getExport(new Request("http://localhost"), ctx),
+      await deleteExport(new Request("http://localhost"), ctx),
+      await deleteRecording(new Request("http://localhost"), ctx),
+    ];
+    expect(results.map((res) => res.status)).toEqual([200, 200, 200]);
     const calls = fetchMock.mock.calls.map((c) => [c[0], (c[1] as RequestInit).method]);
     expect(calls).toEqual([
       [`http://api.test/v1/exports/${ID}`, "GET"],
@@ -188,9 +192,12 @@ describe("recording status", () => {
 describe("admin routes", () => {
   it("forward actions with the admin's token", async () => {
     const fetchMock = mockApi(200, { updated: true });
-    await adminRetry(new Request("http://localhost", { method: "POST" }), ctx);
-    await adminReport(json({ status: "actioned" }), ctx);
-    await adminSupport(json({ status: "answered" }), ctx);
+    const results = [
+      await adminRetry(new Request("http://localhost", { method: "POST" }), ctx),
+      await adminReport(json({ status: "actioned" }), ctx),
+      await adminSupport(json({ status: "answered" }), ctx),
+    ];
+    expect(results.map((res) => res.status)).toEqual([200, 200, 200]);
     expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
       `http://api.test/v1/admin/jobs/${ID}/retry`,
       `http://api.test/v1/admin/reports/${ID}`,

@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileAudio, UploadCloud } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { JobProgress, type JobView } from "@/components/dashboard/job-progress";
-import { readApiError } from "@/lib/messages";
+import { postJson } from "@/lib/http";
 import { checkUpload, putFile, titleFromFilename, withRetry } from "@/lib/upload";
 import { cn, formatBytes } from "@/lib/utils";
 
@@ -24,6 +24,7 @@ export function UploadFlow({ limits }: { limits: Limits }) {
   const input = useRef<HTMLInputElement>(null);
   const inflight = useRef(false);
   const uploadDone = useRef(false);
+  const controller = useRef<AbortController | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [rights, setRights] = useState(false);
@@ -36,6 +37,10 @@ export function UploadFlow({ limits }: { limits: Limits }) {
   const [job, setJob] = useState<JobView | null>(null);
 
   const noJobsLeft = limits.jobsLeft <= 0;
+
+  useEffect(() => {
+    return () => controller.current?.abort();
+  }, []);
 
   function choose(candidate: File | undefined) {
     if (!candidate) return;
@@ -53,14 +58,13 @@ export function UploadFlow({ limits }: { limits: Limits }) {
 
   async function startProcessing(id: string) {
     setPhase("processing");
-    const res = await fetch(`/api/songs/${id}/process`, { method: "POST" });
-    if (!res.ok) {
-      const failure = await readApiError(res);
-      setError(failure.message);
+    const out = await postJson(`/api/songs/${id}/process`);
+    if (!out.ok || !out.res) {
+      setError(out.message);
       setPhase("uploaded");
       return;
     }
-    const body = (await res.json()) as { job: JobView };
+    const body = (await out.res.json()) as { job: JobView };
     setSongId(id);
     setJob(body.job);
   }
@@ -75,25 +79,27 @@ export function UploadFlow({ limits }: { limits: Limits }) {
       if (!target) {
         setPhase("uploading");
         setProgress(0);
-        const res = await fetch("/api/uploads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name, size: file.size, rightsConfirmed: rights, title }),
+        const out = await postJson("/api/uploads", {
+          filename: file.name,
+          size: file.size,
+          rightsConfirmed: rights,
+          title,
         });
-        if (!res.ok) {
-          setError((await readApiError(res)).message);
+        if (!out.ok || !out.res) {
+          setError(out.message);
           setPhase("idle");
           return;
         }
-        const created = (await res.json()) as { songId: string; uploadUrl: string };
+        const created = (await out.res.json()) as { songId: string; uploadUrl: string };
         target = { songId: created.songId, uploadUrl: created.uploadUrl };
         setPending(target);
       }
 
       if (!uploadDone.current) {
         setPhase("uploading");
+        controller.current = new AbortController();
         try {
-          await withRetry(putFile(target.uploadUrl, file), setProgress);
+          await withRetry(putFile(target.uploadUrl, file, controller.current.signal), setProgress);
         } catch {
           setError("The upload failed. Check your connection and try again.");
           setPhase("idle");
@@ -103,6 +109,9 @@ export function UploadFlow({ limits }: { limits: Limits }) {
       }
       setPhase("uploaded");
       await startProcessing(target.songId);
+    } catch {
+      setError("Something went wrong. Check your connection and try again.");
+      setPhase(uploadDone.current ? "uploaded" : "idle");
     } finally {
       inflight.current = false;
     }
@@ -134,8 +143,8 @@ export function UploadFlow({ limits }: { limits: Limits }) {
     <form onSubmit={submit} className="space-y-6">
       {noJobsLeft ? (
         <Alert tone="info">
-          You have used all of your processing jobs for this month. You can still upload, but processing will start next
-          month.
+          You have used all of this month&apos;s songs. You can still upload, but you will need to start processing from
+          the song&apos;s page after your limit resets.
         </Alert>
       ) : null}
 
@@ -157,7 +166,7 @@ export function UploadFlow({ limits }: { limits: Limits }) {
       >
         {file ? (
           <div className="flex items-center justify-center gap-3">
-            <FileAudio className="h-7 w-7 text-primary" aria-hidden="true" />
+            <FileAudio className="h-7 w-7 text-link" aria-hidden="true" />
             <div className="text-left">
               <p className="max-w-xs truncate font-medium">{file.name}</p>
               <p className="text-sm text-muted">{formatBytes(file.size)}</p>
@@ -168,7 +177,7 @@ export function UploadFlow({ limits }: { limits: Limits }) {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3">
-            <UploadCloud className="h-10 w-10 text-primary" aria-hidden="true" />
+            <UploadCloud className="h-10 w-10 text-link" aria-hidden="true" />
             <p className="text-lg font-medium">Drag a song here or choose a file</p>
             <p className="text-sm text-muted">
               MP3, WAV, M4A or FLAC. Up to {formatBytes(limits.maxFileBytes)} and {limits.maxMinutes} minutes.

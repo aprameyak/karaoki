@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import type { RecordingItem } from "@/lib/media";
-import { readApiError } from "@/lib/messages";
+import { postJson, send } from "@/lib/http";
 import { defaultOffsetMs, extensionForMime, formatElapsed, pickMimeType, rmsLevel } from "@/lib/recorder";
 import { putFile, withRetry } from "@/lib/upload";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,8 @@ export function StudioRecorder({ songId, title, instrumentalUrl, initialRecordin
   const chunks = useRef<Blob[]>([]);
   const startedAt = useRef(0);
   const touchedOffset = useRef(false);
+  const mounted = useRef(true);
+  const refreshingBacking = useRef(false);
 
   const supported = useSyncExternalStore(
     () => () => undefined,
@@ -56,6 +58,8 @@ export function StudioRecorder({ songId, title, instrumentalUrl, initialRecordin
   const [backingGain, setBackingGain] = useState(0.8);
   const [progress, setProgress] = useState(0);
   const [recordings, setRecordings] = useState<RecordingItem[]>(initialRecordings);
+  const [backingUrl, setBackingUrl] = useState(instrumentalUrl);
+  const [remixing, setRemixing] = useState<string[]>([]);
 
   const releaseMicrophone = useCallback(() => {
     cancelAnimationFrame(frame.current);
@@ -67,13 +71,25 @@ export function StudioRecorder({ songId, title, instrumentalUrl, initialRecordin
     setLevel(0);
   }, []);
 
+  const detachRecorder = useCallback(() => {
+    const instance = recorder.current;
+    recorder.current = null;
+    if (!instance) return;
+    instance.ondataavailable = null;
+    instance.onstop = null;
+    if (instance.state !== "inactive") instance.stop();
+  }, []);
+
   useEffect(() => {
+    mounted.current = true;
     const element = backing.current;
     return () => {
+      mounted.current = false;
+      detachRecorder();
       releaseMicrophone();
       element?.pause();
     };
-  }, [releaseMicrophone]);
+  }, [releaseMicrophone, detachRecorder]);
 
   useEffect(() => {
     return () => {
@@ -81,20 +97,45 @@ export function StudioRecorder({ songId, title, instrumentalUrl, initialRecordin
     };
   }, [take]);
 
-  const pending = recordings.filter((item) => item.status === "mixing" || item.status === "uploaded").map((item) => item.id).join(",");
+  const pending = recordings
+    .filter((item) => item.status === "mixing" || item.status === "uploaded")
+    .map((item) => item.id)
+    .join(",");
 
   useEffect(() => {
     if (!pending) return;
+    let failures = 0;
     const timer = setInterval(async () => {
       for (const id of pending.split(",")) {
-        const res = await fetch(`/api/recordings/${id}`, { cache: "no-store" });
-        if (!res.ok) continue;
-        const { recording } = (await res.json()) as { recording: RecordingItem };
+        const out = await send(`/api/recordings/${id}`, { cache: "no-store" });
+        if (!out.ok || !out.res) {
+          failures += 1;
+          if (out.res?.status === 404 || failures >= 5) {
+            clearInterval(timer);
+            setError("Could not check on your mix. Reload the page to see its status.");
+          }
+          continue;
+        }
+        failures = 0;
+        const { recording } = (await out.res.json()) as { recording: RecordingItem };
         setRecordings((list) => list.map((item) => (item.id === id ? { ...item, ...recording } : item)));
       }
     }, POLL_MS);
     return () => clearInterval(timer);
   }, [pending]);
+
+  async function refreshBacking() {
+    if (refreshingBacking.current) return;
+    refreshingBacking.current = true;
+    const out = await send(`/api/songs/${songId}/media`, { cache: "no-store" });
+    if (out.ok && out.res) {
+      const media = (await out.res.json()) as { instrumental: string | null };
+      if (media.instrumental) setBackingUrl(media.instrumental);
+    }
+    setTimeout(() => {
+      refreshingBacking.current = false;
+    }, 5000);
+  }
 
   function meter() {
     const node = analyser.current;
@@ -114,6 +155,10 @@ export function StudioRecorder({ songId, title, instrumentalUrl, initialRecordin
       const media = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       });
+      if (!mounted.current) {
+        media.getTracks().forEach((track) => track.stop());
+        return;
+      }
       stream.current = media;
       const mime = pickMimeType((type) => MediaRecorder.isTypeSupported(type)) ?? "";
       const instance = new MediaRecorder(media, mime ? { mimeType: mime } : undefined);
@@ -122,6 +167,7 @@ export function StudioRecorder({ songId, title, instrumentalUrl, initialRecordin
         if (event.data.size > 0) chunks.current.push(event.data);
       };
       instance.onstop = () => {
+        if (!mounted.current) return;
         const type = instance.mimeType || mime || "audio/webm";
         const blob = new Blob(chunks.current, { type });
         setTake({ blob, url: URL.createObjectURL(blob), ms: performance.now() - startedAt.current });
@@ -145,10 +191,19 @@ export function StudioRecorder({ songId, title, instrumentalUrl, initialRecordin
       if (element) element.currentTime = 0;
       startedAt.current = performance.now();
       instance.start(250);
-      await element?.play();
+      try {
+        await element?.play();
+      } catch {
+        detachRecorder();
+        releaseMicrophone();
+        setPhase("idle");
+        setError("The backing track could not be played. Reload the page and try again.");
+        return;
+      }
       setPhase("recording");
       frame.current = requestAnimationFrame(meter);
     } catch (failure) {
+      detachRecorder();
       releaseMicrophone();
       setPhase("idle");
       const denied = failure instanceof DOMException && (failure.name === "NotAllowedError" || failure.name === "SecurityError");
@@ -179,24 +234,22 @@ export function StudioRecorder({ songId, title, instrumentalUrl, initialRecordin
     setProgress(0);
     try {
       const extension = extensionForMime(take.blob.type);
-      const prepared = await fetch(`/api/songs/${songId}/recordings/upload`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ extension }),
-      });
-      if (!prepared.ok) throw new Error((await readApiError(prepared)).message);
-      const { path, uploadUrl } = (await prepared.json()) as { path: string; uploadUrl: string };
+      const prepared = await postJson(`/api/songs/${songId}/recordings/upload`, { extension });
+      if (!prepared.ok || !prepared.res) throw new Error(prepared.message);
+      const { path, uploadUrl } = (await prepared.res.json()) as { path: string; uploadUrl: string };
 
       const file = new File([take.blob], `take.${extension}`, { type: take.blob.type });
       await withRetry(putFile(uploadUrl, file), setProgress);
 
-      const created = await fetch(`/api/songs/${songId}/recordings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path, title: name.trim() || "Take", offsetMs, vocalGain, backingGain }),
+      const created = await postJson(`/api/songs/${songId}/recordings`, {
+        path,
+        title: name.trim() || "Take",
+        offsetMs,
+        vocalGain,
+        backingGain,
       });
-      if (!created.ok) throw new Error((await readApiError(created)).message);
-      const { recording } = (await created.json()) as { recording: RecordingItem };
+      if (!created.ok || !created.res) throw new Error(created.message);
+      const { recording } = (await created.res.json()) as { recording: RecordingItem };
       setRecordings((list) => [{ ...recording, mix_url: null }, ...list]);
       setTake(null);
       setPhase("idle");
@@ -207,26 +260,30 @@ export function StudioRecorder({ songId, title, instrumentalUrl, initialRecordin
   }
 
   async function remix(item: RecordingItem, changes: Partial<Pick<RecordingItem, "offset_ms" | "vocal_gain" | "backing_gain">>) {
+    if (remixing.includes(item.id)) return;
     const next = { ...item, ...changes };
-    const res = await fetch(`/api/recordings/${item.id}/remix`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ offsetMs: next.offset_ms, vocalGain: next.vocal_gain, backingGain: next.backing_gain }),
+    setRemixing((list) => [...list, item.id]);
+    const out = await postJson(`/api/recordings/${item.id}/remix`, {
+      offsetMs: next.offset_ms,
+      vocalGain: next.vocal_gain,
+      backingGain: next.backing_gain,
     });
-    if (!res.ok) {
-      setError((await readApiError(res)).message);
+    setRemixing((list) => list.filter((id) => id !== item.id));
+    if (!out.ok) {
+      setError(out.message);
       return;
     }
     setRecordings((list) => list.map((entry) => (entry.id === item.id ? { ...next, status: "mixing", mix_url: null, error: null } : entry)));
   }
 
-  async function remove(id: string) {
-    const res = await fetch(`/api/recordings/${id}`, { method: "DELETE" });
-    if (!res.ok) {
-      setError((await readApiError(res)).message);
+  async function remove(item: RecordingItem) {
+    if (!window.confirm(`Delete "${item.title}"? This cannot be undone.`)) return;
+    const out = await postJson(`/api/recordings/${item.id}`, undefined, "DELETE");
+    if (!out.ok) {
+      setError(out.message);
       return;
     }
-    setRecordings((list) => list.filter((item) => item.id !== id));
+    setRecordings((list) => list.filter((entry) => entry.id !== item.id));
   }
 
   if (!supported) {
@@ -237,7 +294,7 @@ export function StudioRecorder({ songId, title, instrumentalUrl, initialRecordin
 
   return (
     <div className="space-y-8">
-      <audio ref={backing} src={instrumentalUrl} preload="auto" onEnded={stopRecording} />
+      <audio ref={backing} src={backingUrl} preload="auto" onEnded={stopRecording} onError={() => void refreshBacking()} />
 
       <section aria-label="Recorder" className="space-y-5 rounded-2xl border border-line p-5">
         <div className="space-y-2 text-sm text-muted">
@@ -316,7 +373,7 @@ export function StudioRecorder({ songId, title, instrumentalUrl, initialRecordin
           <article key={item.id} className="space-y-4 rounded-2xl border border-line p-4">
             <div className="flex items-center justify-between gap-3">
               <h3 className="truncate font-medium">{item.title}</h3>
-              <button type="button" aria-label={`Delete ${item.title}`} disabled={item.status === "mixing"} onClick={() => void remove(item.id)} className="text-muted hover:text-danger disabled:opacity-40">
+              <button type="button" aria-label={`Delete ${item.title}`} disabled={item.status === "mixing"} onClick={() => void remove(item)} className="text-muted hover:text-danger disabled:opacity-40">
                 <Trash2 className="h-5 w-5" />
               </button>
             </div>
@@ -325,13 +382,13 @@ export function StudioRecorder({ songId, title, instrumentalUrl, initialRecordin
             {item.status === "ready" && item.mix_url ? (
               <div className="space-y-2">
                 <audio controls src={item.mix_url} className="w-full" aria-label={`Mix of ${item.title}`} />
-                <a href={item.mix_url} download className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
+                <a href={item.mix_url} download className="inline-flex items-center gap-2 text-sm text-link hover:underline">
                   <Download className="h-4 w-4" /> Download
                 </a>
               </div>
             ) : null}
             {item.status === "ready" || item.status === "failed" ? (
-              <RemixControls item={item} onRemix={(changes) => void remix(item, changes)} />
+              <RemixControls item={item} busy={remixing.includes(item.id)} onRemix={(changes) => void remix(item, changes)} />
             ) : null}
           </article>
         ))}
@@ -366,7 +423,7 @@ function MixControls({
   );
 }
 
-function RemixControls({ item, onRemix }: { item: RecordingItem; onRemix: (changes: Partial<Pick<RecordingItem, "offset_ms" | "vocal_gain" | "backing_gain">>) => void }) {
+function RemixControls({ item, busy, onRemix }: { item: RecordingItem; busy: boolean; onRemix: (changes: Partial<Pick<RecordingItem, "offset_ms" | "vocal_gain" | "backing_gain">>) => void }) {
   const [offset, setOffset] = useState(item.offset_ms);
   const [vocal, setVocal] = useState(item.vocal_gain);
   const [backing, setBacking] = useState(item.backing_gain);
@@ -376,7 +433,7 @@ function RemixControls({ item, onRemix }: { item: RecordingItem; onRemix: (chang
       <summary className="cursor-pointer">Adjust sync and volume</summary>
       <div className="mt-4 space-y-4">
         <MixControls offsetMs={offset} vocalGain={vocal} backingGain={backing} onOffset={setOffset} onVocal={setVocal} onBacking={setBacking} />
-        <Button size="sm" disabled={!changed} onClick={() => onRemix({ offset_ms: offset, vocal_gain: vocal, backing_gain: backing })}>
+        <Button size="sm" disabled={!changed || busy} onClick={() => onRemix({ offset_ms: offset, vocal_gain: vocal, backing_gain: backing })}>
           Mix again
         </Button>
       </div>

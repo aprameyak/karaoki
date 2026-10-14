@@ -23,7 +23,7 @@ export const FAQS: Faq[] = [
   },
   {
     question: "Which file types can I upload?",
-    answer: `${ALLOWED_EXTENSIONS.map((e) => e.toUpperCase()).join(", ")}. Karaoki inspects the audio itself rather than trusting the file extension. The free plan accepts files up to ${formatBytes(free.maxFileBytes)} and ${free.maxDurationSeconds / 60} minutes long.`,
+    answer: `${ALLOWED_EXTENSIONS.map((e) => e.toUpperCase()).join(", ")}. Karaoki inspects the audio itself rather than trusting the file extension. Files can be up to ${formatBytes(free.maxFileBytes)} and ${free.maxDurationSeconds / 60} minutes long.`,
   },
   {
     question: "Do I need permission to use a song?",
@@ -80,36 +80,29 @@ export const FEATURES = [
   {
     title: "AI vocal separation",
     body: "Demucs splits every song into an instrumental and a vocals track.",
-    status: "available",
   },
   {
     title: "Karaoke player",
     body: "Seek on a real waveform, change the speed, switch between instrumental, vocals and original, and use keyboard shortcuts.",
-    status: "available",
   },
   {
     title: "Private library",
     body: "Search, sort, favorite, rename and delete your songs. Everything stays on your account.",
-    status: "available",
   },
   {
     title: "Downloads",
     body: "Download your instrumental and, where you are allowed to, the vocals track.",
-    status: "available",
   },
   {
     title: "Key and tempo export",
     body: "Change the key in semitones and the tempo independently, preview 30 seconds, then export the adjusted track.",
-    status: "available",
   },
   {
     title: "Synced lyrics",
     body: "Import a timestamped .lrc file or paste lyrics you have the right to use, and follow along line by line, full screen if you like.",
-    status: "available",
   },
   {
     title: "Recording studio",
     body: "Record your voice over the instrumental, adjust the sync and volume, and download the mix.",
-    status: "available",
   },
-] as const;
+];

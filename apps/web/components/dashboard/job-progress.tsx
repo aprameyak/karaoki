@@ -6,7 +6,7 @@ import { STAGE_LABELS, isActiveJob, type JobStatus } from "@karaoki/shared";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { readApiError } from "@/lib/messages";
+import { postJson, send } from "@/lib/http";
 
 export interface JobView {
   id: string;
@@ -17,6 +17,8 @@ export interface JobView {
 }
 
 const POLL_MS = 2000;
+const GIVE_UP_AFTER = 30;
+const WARN_AFTER = 5;
 
 export function JobProgress({ initial, compact = false }: { initial: JobView; compact?: boolean }) {
   const router = useRouter();
@@ -27,28 +29,40 @@ export function JobProgress({ initial, compact = false }: { initial: JobView; co
 
   useEffect(() => {
     if (!isActiveJob(job.status)) return;
+    failures.current = 0;
     let stopped = false;
     const timer = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/jobs/${job.id}`, { cache: "no-store" });
-        if (res.status === 401) {
-          stopped = true;
+      const out = await send(`/api/jobs/${job.id}`, { cache: "no-store" });
+      if (stopped) return;
+      if (!out.ok || !out.res) {
+        const status = out.res?.status;
+        if (status === 401) {
           clearInterval(timer);
           router.refresh();
           return;
         }
-        if (!res.ok) throw new Error("poll failed");
-        const body = (await res.json()) as { job: JobView };
-        failures.current = 0;
-        if (stopped) return;
-        setJob(body.job);
-        if (!isActiveJob(body.job.status)) {
+        if (status === 404) {
           clearInterval(timer);
-          router.refresh();
+          setMessage("This job no longer exists.");
+          return;
         }
-      } catch {
         failures.current += 1;
-        if (failures.current >= 5) setMessage("Lost connection to the server. Retrying...");
+        if (failures.current >= GIVE_UP_AFTER) {
+          clearInterval(timer);
+          setMessage("Lost connection to the server. Reload the page to check again.");
+        } else if (failures.current >= WARN_AFTER) {
+          setMessage("Lost connection to the server. Retrying...");
+        }
+        return;
+      }
+      failures.current = 0;
+      setMessage(null);
+      const body = (await out.res.json()) as { job: JobView };
+      if (stopped) return;
+      setJob(body.job);
+      if (!isActiveJob(body.job.status)) {
+        clearInterval(timer);
+        router.refresh();
       }
     }, POLL_MS);
     return () => {
@@ -61,15 +75,14 @@ export function JobProgress({ initial, compact = false }: { initial: JobView; co
     async (action: "cancel" | "retry") => {
       setBusy(true);
       setMessage(null);
-      const res = await fetch(`/api/jobs/${job.id}/${action}`, { method: "POST" });
-      if (!res.ok) {
-        setMessage((await readApiError(res)).message);
-        setBusy(false);
+      const out = await postJson(`/api/jobs/${job.id}/${action}`);
+      setBusy(false);
+      if (!out.ok || !out.res) {
+        setMessage(out.message);
         return;
       }
-      const body = (await res.json()) as { job: JobView };
+      const body = (await out.res.json()) as { job: JobView };
       setJob(body.job);
-      setBusy(false);
       router.refresh();
     },
     [job.id, router],
@@ -79,11 +92,11 @@ export function JobProgress({ initial, compact = false }: { initial: JobView; co
   const active = isActiveJob(job.status);
 
   return (
-    <div className="space-y-3" aria-live="polite">
+    <div className="space-y-3">
       {active ? (
         <>
           <div className="flex items-center justify-between text-sm">
-            <span>{job.status === "queued" ? "Waiting in the queue" : stage}</span>
+            <span aria-live="polite">{job.status === "queued" ? "Waiting in the queue" : stage}</span>
             {job.progress !== null ? <span className="text-muted">{job.progress}%</span> : null}
           </div>
           <Progress value={job.status === "queued" ? null : job.progress} label="Processing progress" />

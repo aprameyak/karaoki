@@ -6,7 +6,7 @@ import { Pencil, Star, Trash2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { readApiError } from "@/lib/messages";
+import { postJson } from "@/lib/http";
 import { cn } from "@/lib/utils";
 
 export function SongActions({
@@ -14,11 +14,13 @@ export function SongActions({
   title,
   isFavorite,
   canDelete,
+  redirectTo,
 }: {
   id: string;
   title: string;
   isFavorite: boolean;
   canDelete: boolean;
+  redirectTo?: string;
 }) {
   const router = useRouter();
   const [favorite, setFavorite] = useState(isFavorite);
@@ -31,14 +33,10 @@ export function SongActions({
   async function send(method: "PATCH" | "DELETE", body?: unknown): Promise<boolean> {
     setBusy(true);
     setError(null);
-    const res = await fetch(`/api/songs/${id}`, {
-      method,
-      headers: body ? { "Content-Type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    const out = await postJson(`/api/songs/${id}`, body, method);
     setBusy(false);
-    if (!res.ok) {
-      setError((await readApiError(res)).message);
+    if (!out.ok) {
+      setError(out.message);
       return false;
     }
     return true;
@@ -62,7 +60,8 @@ export function SongActions({
   async function remove() {
     if (await send("DELETE")) {
       setConfirming(false);
-      router.refresh();
+      if (redirectTo) router.push(redirectTo);
+      else router.refresh();
     }
   }
 

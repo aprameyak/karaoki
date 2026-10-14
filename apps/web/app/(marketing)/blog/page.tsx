@@ -22,7 +22,7 @@ export default function BlogIndexPage() {
                 <time dateTime={post.date}>{formatPostDate(post.date)}</time> · {post.minutes} min read
               </p>
               <h2 className="mt-2 text-xl font-semibold">
-                <Link href={`/blog/${post.slug}`} className="hover:text-primary">
+                <Link href={`/blog/${post.slug}`} className="hover:text-link">
                   {post.title}
                 </Link>
               </h2>

@@ -6,7 +6,15 @@ import { SongStatusBadge } from "@/components/dashboard/status-badge";
 import type { SongListItem } from "@/lib/songs";
 import { formatDuration, timeAgo } from "@/lib/utils";
 
-export function SongRow({ song, job }: { song: SongListItem; job?: ProcessingJob }) {
+export function SongRow({
+  song,
+  job,
+  actions,
+}: {
+  song: SongListItem;
+  job?: ProcessingJob;
+  actions?: React.ReactNode;
+}) {
   const active = song.status === "processing" && job && (job.status === "queued" || job.status === "processing");
   return (
     <li className="rounded-2xl border border-line bg-surface/70 p-4">
@@ -22,6 +30,7 @@ export function SongRow({ song, job }: { song: SongListItem; job?: ProcessingJob
           </p>
         </Link>
         <SongStatusBadge status={song.status} />
+        {actions}
       </div>
       {active && job ? (
         <div className="mt-4">

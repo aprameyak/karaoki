@@ -61,7 +61,7 @@ export function ToolPage({ content }: { content: ToolContent }) {
           <ol className="mt-6 space-y-4">
             {content.steps.map((step, index) => (
               <li key={step.name} className="rounded-2xl border border-line bg-surface/60 p-5">
-                <p className="text-sm text-primary">Step {index + 1}</p>
+                <p className="text-sm text-link">Step {index + 1}</p>
                 <h3 className="mt-1 font-semibold">{step.name}</h3>
                 <p className="mt-2 text-sm text-muted">{step.text}</p>
               </li>
@@ -97,7 +97,7 @@ export function ToolPage({ content }: { content: ToolContent }) {
 
         <nav aria-label="Related pages" className="flex flex-wrap justify-center gap-4 text-sm">
           {content.related.map((link) => (
-            <Link key={link.href} href={link.href} className="text-primary hover:underline">
+            <Link key={link.href} href={link.href} className="text-link hover:underline">
               {link.label}
             </Link>
           ))}

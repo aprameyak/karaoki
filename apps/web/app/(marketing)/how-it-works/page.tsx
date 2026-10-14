@@ -24,7 +24,7 @@ export default function HowItWorksPage() {
       <ol className="mx-auto max-w-3xl space-y-6 px-5 pb-10">
         {STEPS.map((step, index) => (
           <li key={step.title} className="rounded-3xl border border-line bg-surface/60 p-6">
-            <p className="text-sm text-primary">Step {index + 1}</p>
+            <p className="text-sm text-link">Step {index + 1}</p>
             <h2 className="mt-1 text-2xl font-semibold">{step.title}</h2>
             <p className="mt-2 text-muted">{step.body}</p>
             <p className="mt-3 text-sm text-muted">{details[index]}</p>

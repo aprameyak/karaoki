@@ -39,6 +39,12 @@ export default async function LibraryPage({
       </header>
 
       <Card className="py-4">
+        <div className="mb-4 flex items-center justify-between text-sm">
+          <span>Songs processed this month</span>
+          <span className="text-muted">
+            {account.jobsUsed} of {account.plan.monthlyJobs}
+          </span>
+        </div>
         <div className="flex items-center justify-between text-sm">
           <span>Storage used</span>
           <span className="text-muted">
@@ -83,7 +89,7 @@ export default async function LibraryPage({
           <p className="font-medium">{query.q || query.favorites ? "No songs match your filters" : "Your library is empty"}</p>
           <p className="mt-1 text-sm text-muted">
             {query.q || query.favorites ? (
-              <Link href="/dashboard/library" className="text-primary hover:underline">
+              <Link href="/dashboard/library" className="text-link hover:underline">
                 Clear filters
               </Link>
             ) : (
@@ -94,17 +100,19 @@ export default async function LibraryPage({
       ) : (
         <ul className="space-y-3">
           {songs.map((song) => (
-            <div key={song.id} className="flex flex-col gap-3 md:flex-row md:items-start">
-              <div className="min-w-0 flex-1">
-                <SongRow song={song} job={jobs.get(song.id)} />
-              </div>
-              <SongActions
-                id={song.id}
-                title={song.title}
-                isFavorite={song.is_favorite}
-                canDelete={song.status !== "processing"}
-              />
-            </div>
+            <SongRow
+              key={song.id}
+              song={song}
+              job={jobs.get(song.id)}
+              actions={
+                <SongActions
+                  id={song.id}
+                  title={song.title}
+                  isFavorite={song.is_favorite}
+                  canDelete={song.status !== "processing"}
+                />
+              }
+            />
           ))}
         </ul>
       )}

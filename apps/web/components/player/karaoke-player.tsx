@@ -39,6 +39,11 @@ interface Props {
 
 const STEMS: Stem[] = ["instrumental", "vocals", "original"];
 
+function isInteractive(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+  return Boolean(element?.closest?.("button, a, summary, audio, select"));
+}
+
 export function KaraokePlayer({ songId, userId, lyrics, duration, peaks, urls: initialUrls, downloads: initialDownloads, initialVolume = 0.8 }: Props) {
   const els = useRef<Record<Stem, HTMLAudioElement | null>>({
     instrumental: null,
@@ -46,6 +51,8 @@ export function KaraokePlayer({ songId, userId, lyrics, duration, peaks, urls: i
     original: null,
   });
   const refreshing = useRef(false);
+  const switching = useRef(false);
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resume = useRef<{ time: number; play: boolean } | null>(null);
 
   const [urls, setUrls] = useState(initialUrls);
@@ -57,6 +64,7 @@ export function KaraokePlayer({ songId, userId, lyrics, duration, peaks, urls: i
   const [muted, setMuted] = useState(false);
   const [rate, setRate] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [shortcuts, setShortcuts] = useState(true);
 
   const active = useCallback(() => els.current[stem], [stem]);
 
@@ -118,29 +126,6 @@ export function KaraokePlayer({ songId, userId, lyrics, duration, peaks, urls: i
     [active, total],
   );
 
-  const switchStem = useCallback(
-    async (next: Stem) => {
-      if (next === stem || !urls[next]) return;
-      const from = els.current[stem];
-      const to = els.current[next];
-      const time = from?.currentTime ?? 0;
-      const wasPlaying = Boolean(from && !from.paused);
-      from?.pause();
-      setStem(next);
-      if (to) {
-        to.currentTime = time;
-        if (wasPlaying) {
-          try {
-            await to.play();
-          } catch {
-            setPlaying(false);
-          }
-        }
-      }
-    },
-    [stem, urls],
-  );
-
   const refreshLinks = useCallback(async () => {
     if (refreshing.current) return;
     refreshing.current = true;
@@ -163,15 +148,54 @@ export function KaraokePlayer({ songId, userId, lyrics, duration, peaks, urls: i
       setPlaying(false);
       setError("The audio link expired and could not be refreshed. Reload the page.");
     } finally {
-      setTimeout(() => {
+      refreshTimer.current = setTimeout(() => {
         refreshing.current = false;
       }, 5000);
     }
   }, [active, songId]);
 
+  const switchStem = useCallback(
+    async (next: Stem) => {
+      if (next === stem || !urls[next]) return;
+      const from = els.current[stem];
+      const to = els.current[next];
+      const time = from?.currentTime ?? 0;
+      const wasPlaying = Boolean(from && !from.paused);
+      switching.current = true;
+      from?.pause();
+      setStem(next);
+      try {
+        if (to) {
+          to.currentTime = time;
+          if (wasPlaying) {
+            try {
+              await to.play();
+              setPlaying(true);
+            } catch {
+              setPlaying(false);
+              void refreshLinks();
+            }
+          }
+        }
+      } finally {
+        switching.current = false;
+      }
+    },
+    [stem, urls, refreshLinks],
+  );
+
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    };
+  }, []);
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      if (!shortcuts) return;
       if (event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return;
+      if (event.key === " " && isInteractive(event.target)) return;
       const action = actionForKey(event.key);
       if (!action) return;
       event.preventDefault();
@@ -204,7 +228,7 @@ export function KaraokePlayer({ songId, userId, lyrics, duration, peaks, urls: i
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggle, seekTo, switchStem, urls, total, active]);
+  }, [toggle, seekTo, switchStem, urls, total, active, shortcuts]);
 
   const stems = availableStems(urls);
   if (stems.length === 0) {
@@ -223,6 +247,12 @@ export function KaraokePlayer({ songId, userId, lyrics, duration, peaks, urls: i
           preload="auto"
           onEnded={() => {
             if (key === stem) setPlaying(false);
+          }}
+          onPlay={() => {
+            if (key === stem) setPlaying(true);
+          }}
+          onPause={() => {
+            if (key === stem && !switching.current) setPlaying(false);
           }}
           onError={() => {
             if (key === stem && urls[key]) void refreshLinks();
@@ -262,18 +292,17 @@ export function KaraokePlayer({ songId, userId, lyrics, duration, peaks, urls: i
         </Button>
       </div>
 
-      <div role="radiogroup" aria-label="Audio track" className="flex flex-wrap justify-center gap-2">
+      <div role="group" aria-label="Audio track" className="flex flex-wrap justify-center gap-2">
         {STEMS.map((key) => (
           <button
             key={key}
             type="button"
-            role="radio"
-            aria-checked={stem === key}
+            aria-pressed={stem === key}
             disabled={!urls[key]}
             onClick={() => void switchStem(key)}
             className={cn(
               "h-11 rounded-full px-5 text-sm transition disabled:opacity-40",
-              stem === key ? "bg-gradient-to-r from-primary to-accent text-white" : "bg-surface-2 text-muted hover:text-ink",
+              stem === key ? "bg-gradient-to-r from-primary-strong to-accent-strong text-white" : "bg-surface-2 text-muted hover:text-ink",
             )}
           >
             {STEM_LABELS[key]}
@@ -339,6 +368,10 @@ export function KaraokePlayer({ songId, userId, lyrics, duration, peaks, urls: i
 
       <details className="rounded-2xl border border-line p-4 text-sm text-muted">
         <summary className="cursor-pointer text-ink">Keyboard shortcuts</summary>
+        <label className="mt-3 flex items-center gap-2 text-ink">
+          <input type="checkbox" checked={shortcuts} onChange={(event) => setShortcuts(event.target.checked)} className="h-4 w-4 accent-primary" />
+          Turn keyboard shortcuts on
+        </label>
         <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1">
           <dt>Space or K</dt><dd>Play or pause</dd>
           <dt>Left and right</dt><dd>Back or forward 5 seconds</dd>

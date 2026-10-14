@@ -57,6 +57,7 @@ export function errorResponse(error: unknown): Response {
   if (error instanceof ApiCallError) {
     return Response.json({ error: { code: error.code, message: error.message } }, { status: error.status });
   }
+  console.error("unhandled route error", error);
   return Response.json(
     { error: { code: "internal_error", message: "Something went wrong" } },
     { status: 500 },

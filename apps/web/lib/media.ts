@@ -9,7 +9,7 @@ export interface SongMedia {
   files: Pick<AudioFile, "kind" | "size_bytes" | "format">[];
 }
 
-export function downloadName(title: string, kind: "instrumental" | "vocals", format: string): string {
+export function downloadName(title: string, kind: "instrumental" | "vocals" | "mix", format: string): string {
   const safe = title.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 100) || "song";
   return `${safe} (${kind}).${format}`;
 }
@@ -164,7 +164,7 @@ export async function listRecordings(supabase: SupabaseClient, songId: string): 
     let mixUrl: string | null = null;
     if (row.status === "ready" && file) {
       const signed = await supabase.storage.from(file.bucket).createSignedUrl(file.path, TTL_SECONDS, {
-        download: `${row.title.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").trim() || "take"}.mp3`,
+        download: downloadName(row.title, "mix", "mp3"),
       });
       mixUrl = signed.data?.signedUrl ?? null;
     }

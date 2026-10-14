@@ -13,7 +13,7 @@ export function AuthCard({
   footer?: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5 py-12">
+    <main id="main" className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5 py-12">
       <div className="mb-8 flex justify-center">
         <Logo />
       </div>
@@ -23,7 +23,7 @@ export function AuthCard({
         <div className="mt-6">{children}</div>
       </Card>
       {footer ? <div className="mt-6 text-center text-sm text-muted">{footer}</div> : null}
-    </div>
+    </main>
   );
 }
 

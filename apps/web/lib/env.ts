@@ -13,7 +13,11 @@ export function apiUrl(): string {
 }
 
 export function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!configured && process.env.NODE_ENV === "production") {
+    throw new Error("NEXT_PUBLIC_SITE_URL must be set for production builds");
+  }
+  return (configured ?? "http://localhost:3000").replace(/\/$/, "");
 }
 
 export function supabaseConfig(): { url: string; anonKey: string } {

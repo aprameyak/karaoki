@@ -35,7 +35,7 @@ export default function HomePage() {
             },
             {
               "@type": "FAQPage",
-              mainEntity: FAQS.map((faq) => ({
+              mainEntity: FAQS.slice(0, 5).map((faq) => ({
                 "@type": "Question",
                 name: faq.question,
                 acceptedAnswer: { "@type": "Answer", text: faq.answer },
@@ -92,18 +92,33 @@ export default function HomePage() {
         </div>
       </Section>
 
-      <Section title="What you get" intro="What works today and what is coming next, listed honestly.">
+      <Section title="What you get" intro="Everything you need to turn a song into a performance.">
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((feature) => (
             <div key={feature.title} className="rounded-3xl border border-line bg-surface/60 p-5">
-              <Badge tone={feature.status === "available" ? "success" : "neutral"}>
-                {feature.status === "available" ? "Available" : "Coming soon"}
-              </Badge>
-              <h3 className="mt-4 font-semibold">{feature.title}</h3>
+              <h3 className="font-semibold">{feature.title}</h3>
               <p className="mt-2 text-sm text-muted">{feature.body}</p>
             </div>
           ))}
         </div>
+      </Section>
+
+      <Section title="Karaoke tools" intro="Pick the one that fits what you want to do.">
+        <ul className="grid gap-4 sm:grid-cols-2">
+          {[
+            { href: "/ai-karaoke-maker", title: "AI karaoke maker", text: "From upload to singing along in one place." },
+            { href: "/vocal-remover", title: "Online vocal remover", text: "Split a song into instrumental and vocals." },
+            { href: "/mp3-to-karaoke", title: "MP3 to karaoke", text: "Turn a file you own into a karaoke track." },
+            { href: "/pitch-changer", title: "Pitch changer", text: "Change the key without changing the speed." },
+          ].map((tool) => (
+            <li key={tool.href}>
+              <Link href={tool.href} className="block rounded-3xl border border-line bg-surface/60 p-5 transition hover:border-primary/60">
+                <span className="font-semibold">{tool.title}</span>
+                <span className="mt-1 block text-sm text-muted">{tool.text}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </Section>
 
       <Section title="Hear the difference" intro="Listen to a demo track with and without its lead line.">
@@ -113,7 +128,7 @@ export default function HomePage() {
       <Section title="Free to use" intro="No subscription and no payment details. Just monthly limits.">
         <FreePlanCard />
         <p className="mt-6 text-center text-sm">
-          <Link href="/pricing" className="inline-flex items-center gap-1 text-primary hover:underline">
+          <Link href="/pricing" className="inline-flex items-center gap-1 text-link hover:underline">
             See what is included <ArrowRight className="h-4 w-4" />
           </Link>
         </p>
@@ -122,7 +137,7 @@ export default function HomePage() {
       <Section title="Questions" className="max-w-3xl">
         <FaqList items={FAQS.slice(0, 5)} />
         <p className="mt-6 text-center text-sm">
-          <Link href="/faq" className="text-primary hover:underline">
+          <Link href="/faq" className="text-link hover:underline">
             Read all questions
           </Link>
         </p>

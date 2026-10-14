@@ -5,6 +5,7 @@ const state = vi.hoisted(() => ({
   inserted: [] as unknown[],
   deleted: [] as string[],
   signedFails: false,
+  insertError: null as string | null,
   songStatus: "uploaded",
   removed: [] as { bucket: string; paths: string[] }[],
 }));
@@ -22,7 +23,9 @@ function builder(table: string) {
       return api;
     },
     single: async () =>
-      table === "profiles"
+      table === "songs" && state.insertError
+        ? { data: null, error: { message: state.insertError } }
+        : table === "profiles"
         ? { data: { plan_id: "free", plans: { max_file_bytes: 50 * 1024 * 1024 } }, error: null }
         : { data: { id: "22222222-2222-4222-8222-222222222222" }, error: null },
     maybeSingle: async () => ({ data: { id: "s", status: state.songStatus }, error: null }),
@@ -76,8 +79,10 @@ beforeEach(() => {
   state.deleted = [];
   state.removed = [];
   state.signedFails = false;
+  state.insertError = null;
   state.songStatus = "uploaded";
   process.env.API_URL = "http://api.test";
+  process.env.INTERNAL_API_SECRET = "s3cret";
   resetRateLimits();
   vi.restoreAllMocks();
 });
@@ -96,6 +101,20 @@ describe("POST /api/uploads", () => {
     expect(row.title).toBe("My Song");
     expect(row.user_id).toBe("11111111-1111-4111-8111-111111111111");
     expect(typeof row.rights_confirmed_at).toBe("string");
+  });
+
+  it("tells the user when too many uploads are waiting", async () => {
+    state.insertError = "too_many_pending_uploads";
+    const res = await upload(json(valid));
+    expect(res.status).toBe(429);
+    expect((await res.json()).error.code).toBe("too_many_uploads");
+  });
+
+  it("limits how fast uploads can be created", async () => {
+    const codes = [];
+    for (let i = 0; i < 31; i++) codes.push((await upload(json(valid))).status);
+    expect(codes.slice(0, 30).every((code) => code === 200)).toBe(true);
+    expect(codes[30]).toBe(429);
   });
 
   it("requires a signed-in user", async () => {
@@ -134,23 +153,32 @@ describe("POST /api/uploads", () => {
 describe("DELETE /api/songs/[id]", () => {
   const ctx = { params: Promise.resolve({ id: SONG }) };
 
-  it("removes files and then the song", async () => {
+  it("asks the API to remove the song and every file", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({ deleted: true }), { status: 200 }));
     const res = await deleteSong(new Request("http://localhost"), ctx);
     expect(res.status).toBe(200);
-    expect(state.removed).toEqual([{ bucket: "stems", paths: ["a/b.mp3"] }]);
-    expect(state.deleted).toContain("songs");
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`http://api.test/v1/songs/${SONG}`);
+    expect(init.method).toBe("DELETE");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer token-123");
+    expect(state.deleted).toHaveLength(0);
+    expect(state.removed).toHaveLength(0);
   });
 
-  it("refuses while a job is running", async () => {
-    state.songStatus = "processing";
+  it("passes the API's refusal while a job is running", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () => new Response(JSON.stringify({ error: { code: "job_in_progress", message: "busy" } }), { status: 409 }),
+    );
     const res = await deleteSong(new Request("http://localhost"), ctx);
     expect(res.status).toBe(409);
-    expect(state.deleted).toHaveLength(0);
+    expect((await res.json()).error.code).toBe("job_in_progress");
   });
 
-  it("treats a bad id as missing", async () => {
+  it("treats a bad id as missing and needs a signed-in user", async () => {
     const res = await deleteSong(new Request("http://localhost"), { params: Promise.resolve({ id: "nope" }) });
     expect(res.status).toBe(404);
+    state.user = null;
+    expect((await deleteSong(new Request("http://localhost"), ctx)).status).toBe(401);
   });
 });
 
@@ -207,6 +235,7 @@ describe("POST /api/copyright", () => {
     expect(res.status).toBe(200);
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect((init.headers as Record<string, string>)["X-Client-IP"]).toBe("5.6.7.8");
+    expect((init.headers as Record<string, string>)["X-Internal-Secret"]).toBe("s3cret");
   });
 
   it("validates the report", async () => {

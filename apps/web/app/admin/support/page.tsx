@@ -17,7 +17,7 @@ export default async function AdminSupportPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="font-medium">
                 {request.name}{" "}
-                <a href={`mailto:${request.email}`} className="font-normal text-primary hover:underline">
+                <a href={`mailto:${request.email}`} className="font-normal text-link hover:underline">
                   {request.email}
                 </a>
               </p>

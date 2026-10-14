@@ -25,8 +25,12 @@ export function BeforeAfter() {
     const audio = current();
     if (!audio) return;
     if (audio.paused) {
-      await audio.play();
-      setPlaying(true);
+      try {
+        await audio.play();
+        setPlaying(true);
+      } catch {
+        setPlaying(false);
+      }
     } else {
       audio.pause();
       setPlaying(false);
@@ -43,23 +47,22 @@ export function BeforeAfter() {
     setMode(next);
     if (to) {
       to.currentTime = time;
-      if (wasPlaying) await to.play();
+      if (wasPlaying) await to.play().catch(() => setPlaying(false));
     }
   }
 
   return (
     <div className="rounded-3xl border border-line bg-surface/70 p-6">
-      <div role="tablist" aria-label="Demo track version" className="mb-5 inline-flex rounded-full bg-surface-2 p-1">
+      <div role="group" aria-label="Demo track version" className="mb-5 inline-flex rounded-full bg-surface-2 p-1">
         {(Object.keys(SOURCES) as Mode[]).map((key) => (
           <button
             key={key}
-            role="tab"
             type="button"
-            aria-selected={mode === key}
+            aria-pressed={mode === key}
             onClick={() => void switchTo(key)}
             className={cn(
               "rounded-full px-5 py-2 text-sm transition",
-              mode === key ? "bg-gradient-to-r from-primary to-accent text-white" : "text-muted hover:text-ink",
+              mode === key ? "bg-gradient-to-r from-primary-strong to-accent-strong text-white" : "text-muted hover:text-ink",
             )}
           >
             {SOURCES[key].label}

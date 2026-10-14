@@ -24,8 +24,8 @@ export default async function DashboardPage() {
   const jobs = await latestJobs(supabase, songs.filter((s) => s.status === "processing").map((s) => s.id));
 
   const jobsLeft = Math.max(0, account.plan.monthlyJobs - account.jobsUsed);
-  const jobPercent = (account.jobsUsed / account.plan.monthlyJobs) * 100;
-  const storagePercent = (account.storageUsed / account.plan.maxStorageBytes) * 100;
+  const jobPercent = account.plan.monthlyJobs > 0 ? (account.jobsUsed / account.plan.monthlyJobs) * 100 : 100;
+  const storagePercent = account.plan.maxStorageBytes > 0 ? (account.storageUsed / account.plan.maxStorageBytes) * 100 : 100;
 
   return (
     <div className="space-y-10">
@@ -69,7 +69,7 @@ export default async function DashboardPage() {
       <section aria-label="Recent songs">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Recent songs</h2>
-          <Link href="/dashboard/library" className="text-sm text-primary hover:underline">
+          <Link href="/dashboard/library" className="text-sm text-link hover:underline">
             View library
           </Link>
         </div>

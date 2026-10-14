@@ -1,6 +1,7 @@
 import { FREE_PLAN } from "@karaoki/shared";
 import { z } from "zod";
 import { ApiCallError, errorResponse } from "@/lib/api";
+import { allow } from "@/lib/rate-limit";
 import { readJson, requireSession } from "@/lib/route-auth";
 import { checkUpload, extensionOf, originalPath, sanitizeFilename, titleFromFilename } from "@/lib/upload";
 
@@ -14,6 +15,9 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   try {
     const { supabase, user } = await requireSession();
+    if (!allow(`upload:${user.id}`, 30, 60_000)) {
+      throw new ApiCallError(429, "rate_limited", "You are going too fast. Wait a moment and try again.");
+    }
     const body = await readJson(request, bodySchema);
 
     const ext = extensionOf(body.filename);
@@ -42,6 +46,13 @@ export async function POST(request: Request) {
       })
       .select("id")
       .single();
+    if (error?.message?.includes("too_many_pending_uploads")) {
+      throw new ApiCallError(
+        429,
+        "too_many_uploads",
+        "You have several uploads waiting. Process or delete them before adding more.",
+      );
+    }
     if (error || !song) {
       throw new ApiCallError(500, "create_failed", "Could not start the upload");
     }

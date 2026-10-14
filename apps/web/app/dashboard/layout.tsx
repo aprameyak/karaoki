@@ -53,7 +53,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           {children}
         </main>
       </div>
-      <MobileNav />
+      <MobileNav isAdmin={Boolean(profile?.is_admin)} />
     </div>
   );
 }

@@ -68,6 +68,11 @@ describe("redirectTarget", () => {
     expect(redirectTarget("/dashboardx", false)).toBeNull();
   });
 
+  it("sends signed-in users to where they were going", () => {
+    expect(redirectTarget("/login", true, "/dashboard/library?page=2")).toBe("/dashboard/library?page=2");
+    expect(redirectTarget("/login", true, "https://evil.example")).toBe("/dashboard");
+  });
+
   it("sends signed-in users away from auth pages", () => {
     expect(redirectTarget("/login", true)).toBe("/dashboard");
     expect(redirectTarget("/signup", true)).toBe("/dashboard");

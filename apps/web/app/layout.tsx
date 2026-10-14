@@ -8,7 +8,7 @@ const description =
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
-  title: { default: `Karaoki: ${TAGLINE}`, template: "%s | Karaoki" },
+  title: { default: "Karaoki: AI Karaoke Maker and Vocal Remover", template: "%s | Karaoki" },
   description,
   applicationName: "Karaoki",
   openGraph: {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -83,7 +84,7 @@ export function SignupForm({ next }: { next: string }) {
           {busy ? "Creating account..." : "Create account"}
         </Button>
         <p className="text-center text-xs text-muted">
-          By continuing you agree to the terms and confirm that you will only upload music you have the right to use.
+          By continuing you agree to the <Link href="/terms" className="text-link hover:underline">terms</Link> and confirm that you will only upload music you have the right to use.
         </p>
       </form>
     </>

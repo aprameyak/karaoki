@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ApiCallError, errorResponse } from "@/lib/api";
+import { allow } from "@/lib/rate-limit";
 import { parseId, readJson, requireSession } from "@/lib/route-auth";
 
 const bodySchema = z.object({ extension: z.enum(["webm", "ogg", "m4a", "wav"]) });
@@ -8,6 +9,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const { supabase, user } = await requireSession();
     const songId = parseId((await params).id);
+    if (!allow(`take-upload:${user.id}`, 30, 60_000)) {
+      throw new ApiCallError(429, "rate_limited", "You are going too fast. Wait a moment and try again.");
+    }
     const { extension } = await readJson(request, bodySchema);
 
     const { data: song } = await supabase.from("songs").select("id, status").eq("id", songId).maybeSingle();

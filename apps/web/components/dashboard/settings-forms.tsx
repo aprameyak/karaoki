@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { readApiError } from "@/lib/messages";
+import { postJson, send } from "@/lib/http";
 import { createClient } from "@/lib/supabase/client";
 
 export function ProfileForm({ userId, displayName }: { userId: string; displayName: string }) {
@@ -108,18 +108,18 @@ export function ExportButton() {
   async function download() {
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/account/export", { cache: "no-store" });
-    if (!res.ok) {
-      setError((await readApiError(res)).message);
+    const out = await send("/api/account/export", { cache: "no-store" });
+    if (!out.ok || !out.res) {
+      setError(out.message);
       setBusy(false);
       return;
     }
-    const blob = await res.blob();
+    const blob = await out.res.blob();
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = "karaoki-export.json";
     link.click();
-    URL.revokeObjectURL(link.href);
+    setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
     setBusy(false);
   }
 
@@ -144,9 +144,9 @@ export function DeleteAccount() {
     if (text !== "DELETE") return;
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/account", { method: "DELETE" });
-    if (!res.ok) {
-      setError((await readApiError(res)).message);
+    const out = await postJson("/api/account", undefined, "DELETE");
+    if (!out.ok) {
+      setError(out.message);
       setBusy(false);
       return;
     }

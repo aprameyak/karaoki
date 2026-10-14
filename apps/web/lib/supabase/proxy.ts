@@ -1,15 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { safeNext } from "@/lib/auth-utils";
 
 const AUTH_PAGES = ["/login", "/signup"];
 
-export function redirectTarget(pathname: string, signedIn: boolean): string | null {
+export function redirectTarget(pathname: string, signedIn: boolean, next?: string | null): string | null {
   const protectedArea = ["/dashboard", "/admin"].some((base) => pathname === base || pathname.startsWith(`${base}/`));
   if (!signedIn && protectedArea) {
     return `/login?next=${encodeURIComponent(pathname)}`;
   }
   if (signedIn && AUTH_PAGES.includes(pathname)) {
-    return "/dashboard";
+    return safeNext(next);
   }
   return null;
 }
@@ -44,7 +45,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     signedIn = false;
   }
 
-  const target = redirectTarget(request.nextUrl.pathname, signedIn);
+  const target = redirectTarget(request.nextUrl.pathname, signedIn, request.nextUrl.searchParams.get("next"));
   if (target) {
     const redirect = NextResponse.redirect(new URL(target, request.url));
     response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));

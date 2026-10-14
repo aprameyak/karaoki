@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader, Prose } from "@/components/marketing/page-header";
 import { SupportForm } from "@/components/marketing/support-form";
 import { pageMetadata } from "@/lib/seo";
@@ -21,7 +22,7 @@ export default function ContactPage() {
           </p>
         ) : null}
         <p>
-          To report content that infringes your copyright, use the form on the <a href="/copyright">copyright page</a>{" "}
+          To report content that infringes your copyright, use the form on the <Link href="/copyright">copyright page</Link>{" "}
           so your report is logged and reviewed.
         </p>
       </Prose>

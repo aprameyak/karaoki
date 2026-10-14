@@ -38,7 +38,7 @@ export function Waveform({ peaks, progress, duration, onSeek }: WaveformProps) {
       const value = clamp(peaks[i] ?? 0, 0, 1);
       const barHeight = Math.max(3, value * height * 0.92);
       const x = i * slot;
-      ctx.fillStyle = (i + 0.5) / count <= progress ? gradient : "#2A2A44";
+      ctx.fillStyle = (i + 0.5) / count <= progress ? gradient : "#4a4a72";
       ctx.beginPath();
       ctx.roundRect(x + slot * 0.18, (height - barHeight) / 2, Math.max(1, slot * 0.64), barHeight, 2);
       ctx.fill();

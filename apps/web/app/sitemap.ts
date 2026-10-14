@@ -23,6 +23,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = siteUrl();
   const pages = ROUTES.map((path) => ({
     url: `${base}${path}`,
+    lastModified: new Date(),
     changeFrequency: (path === "" ? "weekly" : "monthly") as "weekly" | "monthly",
     priority: path === "" ? 1 : 0.7,
   }));

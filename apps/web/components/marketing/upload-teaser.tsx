@@ -48,7 +48,7 @@ export function UploadTeaser() {
         {file ? (
           <div className="flex flex-col items-center gap-4">
             <div className="flex items-center gap-3 rounded-2xl bg-surface-2 px-4 py-3">
-              <FileAudio className="h-6 w-6 text-primary" aria-hidden="true" />
+              <FileAudio className="h-6 w-6 text-link" aria-hidden="true" />
               <div className="text-left">
                 <p className="max-w-[16rem] truncate text-sm font-medium">{file.name}</p>
                 <p className="text-xs text-muted">{formatBytes(file.size)}</p>
@@ -63,7 +63,7 @@ export function UploadTeaser() {
               </button>
             </div>
             <p className="text-sm text-muted">
-              Looks good. Create a free account and Karaoki will upload and process it for you.
+              Looks good. Create a free account, then add this song from the Upload page.
             </p>
             <Link href="/signup?next=/dashboard/upload" className={buttonVariants({ size: "lg" })}>
               Create karaoke free
@@ -71,7 +71,7 @@ export function UploadTeaser() {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4">
-            <UploadCloud className="h-10 w-10 text-primary" aria-hidden="true" />
+            <UploadCloud className="h-10 w-10 text-link" aria-hidden="true" />
             <div>
               <p className="text-lg font-medium">Drop a song here</p>
               <p className="mt-1 text-sm text-muted">MP3, WAV, M4A or FLAC up to {formatBytes(FREE_PLAN.maxFileBytes)}</p>

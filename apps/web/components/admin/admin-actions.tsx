@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { readApiError } from "@/lib/messages";
+import { postJson } from "@/lib/http";
 
 export function RetryJobButton({ jobId }: { jobId: string }) {
   const router = useRouter();
@@ -14,9 +14,9 @@ export function RetryJobButton({ jobId }: { jobId: string }) {
   async function retry() {
     setBusy(true);
     setError(null);
-    const res = await fetch(`/api/admin/jobs/${jobId}/retry`, { method: "POST" });
-    if (!res.ok) {
-      setError((await readApiError(res)).message);
+    const out = await postJson(`/api/admin/jobs/${jobId}/retry`);
+    if (!out.ok) {
+      setError(out.message);
       setBusy(false);
       return;
     }
@@ -52,14 +52,10 @@ export function StatusSelect({
     const previous = value;
     setValue(next);
     setError(null);
-    const res = await fetch(`/api/admin/${kind}/${id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: next }),
-    });
-    if (!res.ok) {
+    const out = await postJson(`/api/admin/${kind}/${id}`, { status: next });
+    if (!out.ok) {
       setValue(previous);
-      setError((await readApiError(res)).message);
+      setError(out.message);
       return;
     }
     router.refresh();

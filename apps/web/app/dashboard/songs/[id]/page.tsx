@@ -67,7 +67,7 @@ export default async function SongPage({ params }: { params: Promise<{ id: strin
             <span>Added {timeAgo(item.created_at)}</span>
           </p>
         </div>
-        <SongActions id={item.id} title={item.title} isFavorite={item.is_favorite} canDelete={item.status !== "processing"} />
+        <SongActions id={item.id} title={item.title} isFavorite={item.is_favorite} canDelete={item.status !== "processing"} redirectTo="/dashboard/library" />
       </header>
 
       <Card>
@@ -93,14 +93,27 @@ export default async function SongPage({ params }: { params: Promise<{ id: strin
           </div>
         ) : null}
 
+        {item.status === "processing" && !job ? (
+          <div className="space-y-4">
+            <Alert>Processing was interrupted. You can start it again.</Alert>
+            <StartProcessing songId={item.id} />
+          </div>
+        ) : null}
+
         {item.status === "failed" ? (
           <div className="space-y-4">
-            <Alert>{job?.error ?? "Processing failed."}</Alert>
             {job ? (
               <JobProgress
-                initial={{ id: job.id, status: job.status === "failed" ? "failed" : "canceled", stage: job.stage, progress: job.progress, error: job.error }}
+                initial={{ id: job.id, status: job.status === "canceled" ? "canceled" : "failed", stage: job.stage, progress: job.progress, error: job.error }}
               />
-            ) : null}
+            ) : (
+              <>
+                <Alert>That file could not be processed. Upload it again to try once more.</Alert>
+                <Link href="/dashboard/upload" className={buttonVariants({ variant: "outline" })}>
+                  Upload again
+                </Link>
+              </>
+            )}
           </div>
         ) : null}
 
@@ -112,10 +125,13 @@ export default async function SongPage({ params }: { params: Promise<{ id: strin
         ) : null}
 
         {item.status === "uploading" ? (
-          <p className="text-muted">
-            This upload has not finished. If you left the page during the upload, delete this entry and upload the song
-            again.
-          </p>
+          <div className="space-y-4">
+            <p className="text-muted">
+              This upload has not been processed yet. If the file finished uploading you can start it now. If you left
+              during the upload, delete this entry and upload the song again.
+            </p>
+            <StartProcessing songId={item.id} />
+          </div>
         ) : null}
       </Card>
 

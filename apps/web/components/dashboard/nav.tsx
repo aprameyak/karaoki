@@ -39,21 +39,25 @@ export function SidebarNav({ isAdmin = false }: { isAdmin?: boolean }) {
   );
 }
 
-export function MobileNav() {
+export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const items = isAdmin ? [...ITEMS, { href: "/admin", label: "Admin", icon: Shield, exact: false }] : ITEMS;
   return (
     <nav
       aria-label="Dashboard"
-      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-bg/95 backdrop-blur md:hidden"
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-30 grid border-t border-line bg-bg/95 backdrop-blur md:hidden",
+        isAdmin ? "grid-cols-5" : "grid-cols-4",
+      )}
     >
-      {ITEMS.map(({ href, label, icon: Icon, exact }) => (
+      {items.map(({ href, label, icon: Icon, exact }) => (
         <Link
           key={href}
           href={href}
           aria-current={isActive(pathname, href, exact) ? "page" : undefined}
           className={cn(
             "flex h-16 flex-col items-center justify-center gap-1 text-xs",
-            isActive(pathname, href, exact) ? "text-primary" : "text-muted",
+            isActive(pathname, href, exact) ? "text-link" : "text-muted",
           )}
         >
           <Icon className="h-5 w-5" aria-hidden="true" />

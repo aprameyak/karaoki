@@ -1,4 +1,5 @@
 import { ApiCallError, errorResponse } from "@/lib/api";
+import { downloadName } from "@/lib/media";
 import { parseId, proxy, requireSession } from "@/lib/route-auth";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -23,7 +24,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
         const signed = await supabase.storage
           .from(file.bucket as string)
           .createSignedUrl(file.path as string, 3600, {
-            download: `${String(recording.title).replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").trim() || "take"}.mp3`,
+            download: downloadName(String(recording.title), "mix", "mp3"),
           });
         mixUrl = signed.data?.signedUrl ?? null;
       }

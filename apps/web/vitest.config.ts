@@ -6,7 +6,20 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./", import.meta.url)) },
   },
   test: {
-    environment: "node",
-    include: ["tests/unit/**/*.test.ts"],
+    projects: [
+      {
+        extends: true,
+        test: { name: "unit", environment: "node", include: ["tests/unit/**/*.test.ts"] },
+      },
+      {
+        extends: true,
+        test: {
+          name: "components",
+          environment: "jsdom",
+          include: ["tests/components/**/*.test.tsx"],
+          setupFiles: ["tests/components/setup.tsx"],
+        },
+      },
+    ],
   },
 });

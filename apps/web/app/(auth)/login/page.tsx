@@ -31,7 +31,7 @@ export default async function LoginPage({
       footer={
         <>
           New to Karaoki?{" "}
-          <Link href={`/signup?next=${encodeURIComponent(next)}`} className="text-primary hover:underline">
+          <Link href={`/signup?next=${encodeURIComponent(next)}`} className="text-link hover:underline">
             Create an account
           </Link>
         </>

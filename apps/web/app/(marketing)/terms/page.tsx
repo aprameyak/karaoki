@@ -30,8 +30,8 @@ export default function TermsPage() {
           <li>Trying to bypass plan limits, rate limits or security controls.</li>
           <li>Uploading files that contain malware or are designed to harm the service.</li>
         </ul>
-        <h2>Plans and limits</h2>
-        <p>Plans have monthly processing, storage and file-size limits. Limits may change with notice.</p>
+        <h2>Limits</h2>
+        <p>Karaoki is free to use. Each account has monthly processing, storage and file-size limits. Limits may change with notice.</p>
         <h2>Removal and suspension</h2>
         <p>We may remove content and suspend accounts that violate these terms or that are the subject of a valid copyright notice.</p>
         <h2>No warranty</h2>

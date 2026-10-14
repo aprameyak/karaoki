@@ -92,10 +92,10 @@ describe("shared content", () => {
     for (const faq of FAQS) expect(faq.answer.length).toBeGreaterThan(40);
   });
 
-  it("describes only features that are built as available", () => {
-    const statuses = Object.fromEntries(FEATURES.map((feature) => [feature.title, feature.status]));
+  it("lists every built feature and no billing", () => {
+    const titles = FEATURES.map((feature) => feature.title);
     for (const title of ["Key and tempo export", "Synced lyrics", "Recording studio", "AI vocal separation"]) {
-      expect(statuses[title]).toBe("available");
+      expect(titles).toContain(title);
     }
     expect(FEATURES.some((feature) => /billing|stripe|pro\b/i.test(feature.title + feature.body))).toBe(false);
   });

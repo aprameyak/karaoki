@@ -39,7 +39,7 @@ export default function PrivacyPage() {
         </p>
         <h2>Service providers</h2>
         <p>
-          Karaoki uses providers for hosting, database and storage, authentication, payments and email. The list of
+          Karaoki uses providers for hosting, database and storage, authentication and email. The list of
           providers should be finalized and added here before launch.
         </p>
       </Prose>

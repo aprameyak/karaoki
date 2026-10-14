@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Minus, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { readApiError } from "@/lib/messages";
+import { postJson, send } from "@/lib/http";
 
 export interface ExportView {
   id: string;
@@ -24,6 +24,8 @@ interface Props {
 }
 
 const POLL_MS = 1500;
+const MAX_POLL_MS = 5 * 60 * 1000;
+const GIVE_UP_AFTER = 5;
 
 export function describeExport(item: Pick<ExportView, "source" | "semitones" | "tempo">): string {
   const key = item.semitones === 0 ? "original key" : `key ${item.semitones > 0 ? "+" : ""}${item.semitones}`;
@@ -39,6 +41,7 @@ export function KeyTempoPanel({ songId, hasVocals, initialExports }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const failures = useRef(0);
 
   const stopPolling = useCallback(() => {
     if (timer.current) clearInterval(timer.current);
@@ -50,20 +53,35 @@ export function KeyTempoPanel({ songId, hasVocals, initialExports }: Props) {
   const poll = useCallback(
     (id: string) => {
       stopPolling();
+      failures.current = 0;
+      const startedAt = Date.now();
       timer.current = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/exports/${id}`, { cache: "no-store" });
-          if (!res.ok) return;
-          const { export: next } = (await res.json()) as { export: ExportView };
-          setActive(next);
-          if (next.status === "completed" || next.status === "failed") {
+        if (Date.now() - startedAt > MAX_POLL_MS) {
+          stopPolling();
+          setBusy(false);
+          setError("This is taking longer than expected. Reload the page to check on it.");
+          return;
+        }
+        const out = await send(`/api/exports/${id}`, { cache: "no-store" });
+        if (!out.ok || !out.res) {
+          failures.current += 1;
+          if (out.res?.status === 404 || failures.current >= GIVE_UP_AFTER) {
             stopPolling();
             setBusy(false);
-            if (next.status === "failed") setError(next.error ?? "The export failed.");
-            if (next.status === "completed" && !next.preview) setExports((list) => [next, ...list]);
+            setError(out.message);
           }
-        } catch {
           return;
+        }
+        failures.current = 0;
+        const { export: next } = (await out.res.json()) as { export: ExportView };
+        setActive(next);
+        if (next.status === "completed" || next.status === "failed") {
+          stopPolling();
+          setBusy(false);
+          if (next.status === "failed") setError(next.error ?? "The export failed.");
+          if (next.status === "completed" && !next.preview) {
+            setExports((list) => (list.some((item) => item.id === next.id) ? list : [next, ...list]));
+          }
         }
       }, POLL_MS);
     },
@@ -74,25 +92,22 @@ export function KeyTempoPanel({ songId, hasVocals, initialExports }: Props) {
     setBusy(true);
     setError(null);
     setActive(null);
-    const res = await fetch(`/api/songs/${songId}/exports`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source, semitones, tempo, preview }),
-    });
-    if (!res.ok) {
-      setError((await readApiError(res)).message);
+    const out = await postJson(`/api/songs/${songId}/exports`, { source, semitones, tempo, preview });
+    if (!out.ok || !out.res) {
+      setError(out.message);
       setBusy(false);
       return;
     }
-    const { export: created } = (await res.json()) as { export: ExportView };
+    const { export: created } = (await out.res.json()) as { export: ExportView };
     setActive(created);
     poll(created.id);
   }
 
-  async function remove(id: string) {
-    const res = await fetch(`/api/exports/${id}`, { method: "DELETE" });
-    if (res.ok) setExports((list) => list.filter((item) => item.id !== id));
-    else setError((await readApiError(res)).message);
+  async function remove(item: ExportView) {
+    if (!window.confirm(`Delete this export (${describeExport(item)})?`)) return;
+    const out = await postJson(`/api/exports/${item.id}`, undefined, "DELETE");
+    if (out.ok) setExports((list) => list.filter((entry) => entry.id !== item.id));
+    else setError(out.message);
   }
 
   const unchanged = semitones === 0 && Math.abs(tempo - 1) < 0.005;
@@ -180,7 +195,7 @@ export function KeyTempoPanel({ songId, hasVocals, initialExports }: Props) {
           <p className="text-sm font-medium">{active.preview ? "Preview ready" : "Export ready"}: {describeExport(active)}</p>
           <audio controls src={active.download_url} className="w-full" aria-label="Rendered audio" />
           {!active.preview ? (
-            <a href={active.download_url} download className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
+            <a href={active.download_url} download className="inline-flex items-center gap-2 text-sm text-link hover:underline">
               <Download className="h-4 w-4" /> Download
             </a>
           ) : null}
@@ -198,11 +213,11 @@ export function KeyTempoPanel({ songId, hasVocals, initialExports }: Props) {
                 <span className="truncate">{describeExport(item)}</span>
                 <span className="flex shrink-0 items-center gap-2">
                   {item.download_url ? (
-                    <a href={item.download_url} download aria-label={`Download ${describeExport(item)}`} className="text-primary hover:underline">
+                    <a href={item.download_url} download aria-label={`Download ${describeExport(item)}`} className="text-link hover:underline">
                       <Download className="h-4 w-4" />
                     </a>
                   ) : null}
-                  <button type="button" aria-label={`Delete ${describeExport(item)}`} onClick={() => void remove(item.id)} className="text-muted hover:text-danger">
+                  <button type="button" aria-label={`Delete ${describeExport(item)}`} onClick={() => void remove(item)} className="text-muted hover:text-danger">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </span>

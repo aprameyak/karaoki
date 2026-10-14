@@ -75,7 +75,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         })}
       </div>
       <p className="mt-12 rounded-2xl border border-line bg-surface/60 p-5 text-sm">
-        Ready to try it? <Link href="/signup" className="text-primary hover:underline">Create a free Karaoki account</Link> and
+        Ready to try it? <Link href="/signup" className="text-link hover:underline">Create a free Karaoki account</Link> and
         make your first karaoke track.
       </p>
     </article>

@@ -9,7 +9,7 @@ export function PageHeader({ title, intro }: { title: string; intro?: string }) 
 
 export function Prose({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto max-w-3xl space-y-5 px-5 pb-10 leading-relaxed text-muted [&_a]:text-primary [&_a:hover]:underline [&_h2]:pt-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-ink [&_li]:ml-5 [&_li]:list-disc [&_strong]:text-ink">
+    <div className="mx-auto max-w-3xl space-y-5 px-5 pb-10 leading-relaxed text-muted [&_a]:text-link [&_a:hover]:underline [&_h2]:pt-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-ink [&_li]:ml-5 [&_li]:list-disc [&_strong]:text-ink">
       {children}
     </div>
   );

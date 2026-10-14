@@ -23,11 +23,15 @@ export function ForgotForm() {
     setBusy(true);
     setError(null);
     const supabase = createClient();
-    await supabase.auth.resetPasswordForEmail(parsed.data, {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(parsed.data, {
       redirectTo: `${window.location.origin}/auth/confirm?next=/reset-password`,
     });
-    setDone(true);
     setBusy(false);
+    if (resetError && resetError.status === 429) {
+      setError("Too many requests. Try again in a minute.");
+      return;
+    }
+    setDone(true);
   }
 
   if (done) {

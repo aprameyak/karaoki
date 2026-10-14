@@ -37,7 +37,7 @@ export function checkUpload(filename: string, size: number, maxBytes: number): U
     return { ok: false, error: "That file is empty." };
   }
   if (size > maxBytes) {
-    return { ok: false, error: `That file is larger than your plan allows (${Math.round(maxBytes / 1024 / 1024)} MB).` };
+    return { ok: false, error: `That file is larger than the limit (${Math.round(maxBytes / 1024 / 1024)} MB).` };
   }
   return { ok: true };
 }

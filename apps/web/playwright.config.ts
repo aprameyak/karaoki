@@ -17,6 +17,7 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key",
       NEXT_PUBLIC_SITE_URL: `http://localhost:${port}`,
       API_URL: "http://127.0.0.1:8000",
+      INTERNAL_API_SECRET: "test-secret",
     },
   },
 });

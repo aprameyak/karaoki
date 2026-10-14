@@ -14,7 +14,7 @@ const TAG = /^\[(?:ar|ti|al|au|by|re|ve|length|id):.*\]$/i;
 const OFFSET = /^\[offset:\s*([+-]?\d+)\s*\]$/i;
 const WORD_TIME = /<\d{1,3}:\d{2}(?:[.:]\d{1,3})?>/g;
 
-export function toSeconds(minutes: string, seconds: string, fraction?: string): number {
+function toSeconds(minutes: string, seconds: string, fraction?: string): number {
   const frac = fraction ? Number(`0.${fraction}`) : 0;
   return Number(minutes) * 60 + Number(seconds) + frac;
 }
@@ -89,7 +89,3 @@ export function stampLine(text: string, caret: number, seconds: number): { text:
   return { text: next, caret: after === -1 ? lineEnd : after + 1 };
 }
 
-export function lyricsFromText(content: string): { synced: boolean; lines: LyricLine[] } {
-  const parsed = parseLrc(content);
-  return { synced: parsed.synced, lines: parsed.lines };
-}
