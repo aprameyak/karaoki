@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from app import db
 from app.config import get_settings
-from app.validation import inspect_audio
+from app.validation import ProbeResult, inspect_audio
 
 from worker import pipeline
 from worker.pipeline import run_job
@@ -191,7 +191,7 @@ def test_canceling_while_separating_stops_the_job(prepare, storage, sql):
 
     run_job(job, storage, cancel_midway)
     assert job_row(sql, job)["status"] == "canceled"
-    assert used(sql, user) == 0
+    assert used(sql, user) == 1
     assert sql("select status from public.songs where id = %s", (song,))[0]["status"] == "uploaded"
     assert sql("select count(*) as n from public.audio_files where kind <> 'original'")[0]["n"] == 0
     assert not (Path(get_settings().temp_dir) / job).exists()
@@ -255,3 +255,39 @@ def test_rerun_after_failure_replaces_results(prepare, storage, sql):
 
 def test_pipeline_module_exposes_run_job():
     assert callable(pipeline.run_job)
+
+
+def test_cancelling_a_running_job_does_not_refund_the_compute_it_used(prepare, storage, sql):
+    user, song, job = prepare()
+
+    def cancel_midway(source, out_dir, model, on_progress, should_stop, timeout):
+        db.finish_job(job, "canceled", "Canceled by you")
+        raise Canceled()
+
+    run_job(job, storage, cancel_midway)
+    assert used(sql, user) == 1
+
+
+def test_a_file_longer_than_it_claims_is_stopped(prepare, storage, sql, monkeypatch):
+    user, song, job = prepare(seconds=7)
+    sql("update public.plans set max_duration_seconds = 3 where id = 'free'")
+    real = pipeline.inspect_audio
+    calls = {"n": 0}
+
+    def lying_probe(source, max_duration, timeout=45, allowed=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return ProbeResult(
+                format="mp3", codec="mp3", duration=2.0, sample_rate=44100, channels=2, size_bytes=1
+            )
+        return (
+            real(source, max_duration, timeout, allowed)
+            if allowed
+            else real(source, max_duration, timeout)
+        )
+
+    monkeypatch.setattr(pipeline, "inspect_audio", lying_probe)
+    run_job(job, storage, fake_separator)
+    row = job_row(sql, job)
+    assert row["status"] == "failed" and "minutes" in row["error"]
+    assert used(sql, user) == 0

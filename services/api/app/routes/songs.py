@@ -9,6 +9,7 @@ from app.auth import current_user
 from app.config import get_settings
 from app.deps import get_redis, get_storage, parse_uuid
 from app.errors import ApiError
+from app.purge import purge_song_files
 from app.storage import Storage
 from app.validation import extension_of, inspect_audio
 
@@ -86,3 +87,25 @@ def process_song(
     )
     job = service.start_job(redis, user_id, song_id, settings.demucs_model)
     return {"job": jsonable_encoder(job)}
+
+
+@router.delete("/songs/{song_id}")
+def delete_song(
+    song_id: str, user: dict = Depends(current_user), storage: Storage = Depends(get_storage)
+):
+    song_id = parse_uuid(song_id)
+    song = db.get_song(user["id"], song_id)
+    if song is None:
+        raise ApiError(404, "not_found", "Song not found")
+    if song["status"] == "processing":
+        raise ApiError(
+            409, "job_in_progress", "Cancel the processing job before deleting this song"
+        )
+    try:
+        purge_song_files(storage, user["id"], song_id)
+    except Exception as exc:
+        log.exception("could not remove song files", extra={"fields": {"song_id": song_id}})
+        raise ApiError(502, "storage_failed", "Could not remove the song files, try again") from exc
+    db.delete_song(song_id)
+    db.record_audit(user["id"], "song.delete", "song", song_id)
+    return {"deleted": True}

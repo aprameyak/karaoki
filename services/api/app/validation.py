@@ -38,6 +38,10 @@ CONTENT_TYPES = {
 
 MIN_DURATION_SECONDS = 1.0
 
+FORMAT_WHITELIST = "mp3,wav,flac,mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,ogg"
+PROTOCOL_WHITELIST = "file,http,https,tcp,tls,crypto"
+SAFE_INPUT = ["-format_whitelist", FORMAT_WHITELIST, "-protocol_whitelist", PROTOCOL_WHITELIST]
+
 
 @dataclass
 class ProbeResult:
@@ -68,6 +72,7 @@ def run_ffprobe(source: str, timeout: int) -> dict:
         "-show_streams",
         "-rw_timeout",
         "20000000",
+        *SAFE_INPUT,
         source,
     ]
     try:
@@ -147,9 +152,11 @@ def inspect_audio(
 def measure_duration(source: str, timeout: int) -> float:
     cmd = [
         "ffmpeg",
+        "-nostdin",
         "-v",
         "error",
         "-nostats",
+        *SAFE_INPUT,
         "-i",
         source,
         "-vn",

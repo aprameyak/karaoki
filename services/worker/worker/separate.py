@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import subprocess
@@ -6,11 +7,15 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+log = logging.getLogger("karaoki.separate")
+
 PERCENT = re.compile(r"(\d{1,3})%\|")
 
 
 class SeparationError(Exception):
-    pass
+    def __init__(self, message: str, detail: str = ""):
+        super().__init__(message)
+        self.detail = detail
 
 
 class Canceled(Exception):
@@ -57,7 +62,7 @@ def run_demucs(
         env=env,
     )
     started = time.monotonic()
-    state = {"last": -1}
+    state = {"last": -1, "checked": 0.0}
     tail: list[str] = []
 
     def feed(part: bytes) -> None:
@@ -85,9 +90,12 @@ def run_demucs(
             buffer = parts.pop()
             for part in parts:
                 feed(part)
-            if should_stop():
-                proc.kill()
-                raise Canceled()
+            now = time.monotonic()
+            if now - state["checked"] >= 1.0:
+                state["checked"] = now
+                if should_stop():
+                    proc.kill()
+                    raise Canceled()
             if time.monotonic() - started > timeout:
                 proc.kill()
                 raise SeparationError("Separation took too long")
@@ -100,7 +108,9 @@ def run_demucs(
         raise
 
     if code != 0:
-        raise SeparationError("Separation failed: " + " | ".join(tail[-3:])[:300])
+        detail = " | ".join(tail[-3:])[:300]
+        log.error("demucs exited with an error", extra={"fields": {"code": code, "tail": detail}})
+        raise SeparationError("The song could not be separated. Please try again.", detail)
 
     track_dir = out_dir / model / source.stem
     vocals = track_dir / "vocals.wav"

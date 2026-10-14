@@ -8,8 +8,10 @@ from redis import Redis
 from app import db, service
 from app.auth import current_user
 from app.config import get_settings
-from app.deps import get_redis, parse_uuid
+from app.deps import get_redis, get_storage, parse_uuid
 from app.errors import ApiError
+from app.purge import purge_song_files
+from app.storage import Storage
 
 router = APIRouter(prefix="/v1/admin")
 
@@ -102,3 +104,20 @@ def update_support(request_id: str, body: StatusChange, admin: dict = Depends(re
         raise ApiError(404, "not_found", "Request not found")
     db.record_audit(admin["id"], "admin.support_update", "support_request", request_id)
     return {"updated": True}
+
+
+@router.post("/songs/{song_id}/takedown")
+def takedown(
+    song_id: str, admin: dict = Depends(require_admin), storage: Storage = Depends(get_storage)
+):
+    song_id = parse_uuid(song_id)
+    song = db.get_song_by_id(song_id)
+    if song is None:
+        raise ApiError(404, "not_found", "Song not found")
+    try:
+        purge_song_files(storage, str(song["user_id"]), song_id)
+    except Exception as exc:
+        raise ApiError(502, "storage_failed", "Could not remove the song files, try again") from exc
+    db.delete_song(song_id)
+    db.record_audit(admin["id"], "admin.takedown", "song", song_id)
+    return {"removed": True}

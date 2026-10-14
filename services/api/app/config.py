@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=("../../.env", ".env"), extra="ignore")
 
     database_url: str
     supabase_url: str
@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     preview_retention_hours: int = 24
     max_recording_bytes: int = 104857600
     max_active_exports: int = 3
+    max_previews_per_hour: int = 20
+    max_takes_per_song: int = 20
+    stuck_processing_minutes: int = 30
+    stuck_queued_hours: int = 6
+    internal_api_secret: str | None = None
     resend_api_key: str | None = None
     email_from: str | None = None
     site_url: str = "http://localhost:3000"

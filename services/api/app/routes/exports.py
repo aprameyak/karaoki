@@ -6,11 +6,11 @@ from pydantic import BaseModel, Field, model_validator
 from redis import Redis
 from rq import Queue
 
-from app import db, rate_limit
+from app import db, rate_limit, service
 from app.auth import current_user
 from app.config import get_settings
 from app.deps import get_redis, get_storage, parse_uuid
-from app.errors import ApiError
+from app.errors import ApiError, DomainError
 from app.storage import Storage
 
 router = APIRouter(prefix="/v1")
@@ -63,16 +63,24 @@ def create_export(
         raise ApiError(404, "not_found", "Song not found")
     if song["status"] != "ready" or body.source not in db.song_stem_files(song_id):
         raise ApiError(409, "not_ready", "Process this song before adjusting it")
-    if db.active_export_count(user_id) >= settings.max_active_exports:
-        raise ApiError(429, "too_many_exports", "Wait for your current exports to finish")
 
     plan = db.get_plan(user_id)
-    if plan and not body.preview and db.storage_used(user_id) >= plan["max_storage_bytes"]:
+    if plan and db.storage_used(user_id) >= plan["max_storage_bytes"]:
         raise ApiError(413, "storage_full", "You have run out of storage space")
 
-    export_id = db.create_export(
-        user_id, song_id, body.source, body.semitones, body.tempo, body.preview
-    )
+    try:
+        export_id = db.create_export(
+            user_id,
+            song_id,
+            body.source,
+            body.semitones,
+            body.tempo,
+            body.preview,
+            settings.max_active_exports,
+            settings.max_previews_per_hour,
+        )
+    except DomainError as exc:
+        raise service.to_api_error(exc) from exc
     try:
         queued = Queue(settings.export_queue_name, connection=redis).enqueue(
             EXPORT_TASK,

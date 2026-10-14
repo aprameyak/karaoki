@@ -12,7 +12,13 @@ from app.errors import DomainError
 _pool: ConnectionPool | None = None
 _pool_lock = threading.Lock()
 
-DOMAIN_MESSAGES = {"quota_exceeded", "job_in_progress", "song_not_found", "profile_not_found"}
+DOMAIN_MESSAGES = {
+    "quota_exceeded",
+    "job_in_progress",
+    "song_not_found",
+    "profile_not_found",
+    "already_processed",
+}
 
 
 def get_pool() -> ConnectionPool:
@@ -189,37 +195,6 @@ def finish_job(job_id: str, status: str, error: str | None = None) -> None:
     )
 
 
-def register_stem(
-    song_id: str,
-    user_id: str,
-    kind: str,
-    path: str,
-    fmt: str,
-    size_bytes: int,
-    duration: float,
-    sample_rate: int,
-) -> None:
-    execute(
-        """
-        insert into public.audio_files
-          (song_id, user_id, kind, bucket, path, format, size_bytes, duration_seconds, sample_rate)
-        values (%s::uuid, %s::uuid, %s, 'stems', %s, %s, %s, %s, %s)
-        on conflict (song_id, kind) where kind in ('original', 'instrumental', 'vocals')
-        do update set path = excluded.path, format = excluded.format,
-          size_bytes = excluded.size_bytes, duration_seconds = excluded.duration_seconds,
-          sample_rate = excluded.sample_rate
-        """,
-        (song_id, user_id, kind, path, fmt, size_bytes, duration, sample_rate),
-    )
-
-
-def set_song_peaks(song_id: str, peaks: list[float], duration: float) -> None:
-    execute(
-        "update public.songs set peaks = %s::jsonb, duration_seconds = %s where id = %s::uuid",
-        (json.dumps(peaks), duration, song_id),
-    )
-
-
 def list_audio_files(song_id: str) -> list[dict]:
     return fetch_all("select * from public.audio_files where song_id = %s::uuid", (song_id,))
 
@@ -272,12 +247,32 @@ def get_song_by_id(song_id: str) -> dict | None:
     return fetch_one("select * from public.songs where id = %s::uuid", (song_id,))
 
 
-def stuck_jobs(minutes: int) -> list[dict]:
+def stuck_jobs(processing_minutes: int, queued_hours: int) -> list[dict]:
     return fetch_all(
         """
         select id, status from public.processing_jobs
-        where status in ('processing', 'queued')
-          and updated_at < now() - make_interval(mins => %s)
+        where (status = 'processing' and updated_at < now() - make_interval(mins => %s))
+           or (status = 'queued' and updated_at < now() - make_interval(hours => %s))
+        """,
+        (processing_minutes, queued_hours),
+    )
+
+
+def stuck_exports(minutes: int) -> list[dict]:
+    return fetch_all(
+        """
+        select id from public.audio_exports
+        where status in ('queued', 'processing') and updated_at < now() - make_interval(mins => %s)
+        """,
+        (minutes,),
+    )
+
+
+def stuck_recordings(minutes: int) -> list[dict]:
+    return fetch_all(
+        """
+        select id from public.recordings
+        where status in ('uploaded', 'mixing') and updated_at < now() - make_interval(mins => %s)
         """,
         (minutes,),
     )
@@ -345,17 +340,39 @@ def active_export_count(user_id: str) -> int:
 
 
 def create_export(
-    user_id: str, song_id: str, source: str, semitones: int, tempo: float, preview: bool
+    user_id: str,
+    song_id: str,
+    source: str,
+    semitones: int,
+    tempo: float,
+    preview: bool,
+    max_active: int = 3,
+    max_previews_per_hour: int = 20,
 ) -> str:
-    row = fetch_one(
-        """
-        insert into public.audio_exports (user_id, song_id, source, semitones, tempo, preview)
-        values (%s::uuid, %s::uuid, %s, %s, %s, %s)
-        returning id
-        """,
-        (user_id, song_id, source, semitones, tempo, preview),
-    )
-    return str(row["id"])
+    with get_pool().connection() as conn:
+        conn.execute("select 1 from public.profiles where id = %s::uuid for update", (user_id,))
+        active = conn.execute(
+            "select count(*) as n from public.audio_exports where user_id = %s::uuid and status in ('queued', 'processing')",
+            (user_id,),
+        ).fetchone()
+        if active["n"] >= max_active:
+            raise DomainError("too_many_exports")
+        if preview:
+            recent = conn.execute(
+                "select count(*) as n from public.audio_exports where user_id = %s::uuid and preview and created_at > now() - interval '1 hour'",
+                (user_id,),
+            ).fetchone()
+            if recent["n"] >= max_previews_per_hour:
+                raise DomainError("too_many_previews")
+        row = conn.execute(
+            """
+            insert into public.audio_exports (user_id, song_id, source, semitones, tempo, preview)
+            values (%s::uuid, %s::uuid, %s, %s, %s, %s)
+            returning id
+            """,
+            (user_id, song_id, source, semitones, tempo, preview),
+        ).fetchone()
+        return str(row["id"])
 
 
 def get_export(export_id: str) -> dict | None:
@@ -615,3 +632,77 @@ def recording_count(song_id: str) -> int:
         "select count(*) as n from public.recordings where song_id = %s::uuid", (song_id,)
     )
     return int(row["n"])
+
+
+def register_take(
+    user_id: str,
+    song_id: str,
+    path: str,
+    fmt: str,
+    size_bytes: int,
+    duration: float | None,
+    sample_rate: int | None,
+    title: str,
+    offset_ms: int,
+    vocal_gain: float,
+    backing_gain: float,
+    max_takes: int,
+) -> str:
+    try:
+        with get_pool().connection() as conn:
+            conn.execute("select 1 from public.profiles where id = %s::uuid for update", (user_id,))
+            count = conn.execute(
+                "select count(*) as n from public.recordings where song_id = %s::uuid", (song_id,)
+            ).fetchone()
+            if count["n"] >= max_takes:
+                raise DomainError("too_many_takes")
+            file = conn.execute(
+                """
+                insert into public.audio_files
+                  (song_id, user_id, kind, bucket, path, format, size_bytes, duration_seconds, sample_rate)
+                values (%s::uuid, %s::uuid, 'recording', 'recordings', %s, %s, %s, %s, %s)
+                returning id
+                """,
+                (song_id, user_id, path, fmt, size_bytes, duration, sample_rate),
+            ).fetchone()
+            row = conn.execute(
+                """
+                insert into public.recordings
+                  (user_id, song_id, audio_file_id, title, status, offset_ms, vocal_gain, backing_gain)
+                values (%s::uuid, %s::uuid, %s::uuid, %s, 'mixing', %s, %s, %s)
+                returning id
+                """,
+                (user_id, song_id, file["id"], title, offset_ms, vocal_gain, backing_gain),
+            ).fetchone()
+            return str(row["id"])
+    except psycopg.errors.UniqueViolation as exc:
+        raise DomainError("already_registered") from exc
+
+
+def begin_remix(recording_id: str, offset_ms: int, vocal_gain: float, backing_gain: float) -> bool:
+    return (
+        execute(
+            """
+            update public.recordings
+            set offset_ms = %s, vocal_gain = %s, backing_gain = %s, status = 'mixing', error = null
+            where id = %s::uuid and status in ('ready', 'failed')
+            """,
+            (offset_ms, vocal_gain, backing_gain, recording_id),
+        )
+        == 1
+    )
+
+
+def orphan_objects(hours: int, limit: int = 500) -> list[dict]:
+    return fetch_all(
+        """
+        select o.bucket_id as bucket, o.name as path
+        from storage.objects o
+        where o.created_at < now() - make_interval(hours => %s)
+          and not exists (
+            select 1 from public.audio_files f where f.bucket = o.bucket_id and f.path = o.name
+          )
+        limit %s
+        """,
+        (hours, limit),
+    )

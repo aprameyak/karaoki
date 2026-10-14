@@ -13,12 +13,21 @@ VALID = {
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    from app.config import get_settings
+
+    monkeypatch.setenv("INTERNAL_API_SECRET", "shared-secret")
+    get_settings.cache_clear()
     return TestClient(create_app())
 
 
+TRUSTED = {"X-Internal-Secret": "shared-secret"}
+
+
 def test_report_is_stored(client, sql):
-    res = client.post("/v1/copyright-reports", json=VALID, headers={"X-Client-IP": "1.2.3.4"})
+    res = client.post(
+        "/v1/copyright-reports", json=VALID, headers={**TRUSTED, "X-Client-IP": "1.2.3.4"}
+    )
     assert res.status_code == 201
     row = sql("select * from public.copyright_reports")[0]
     assert row["reporter_email"] == "owner@example.com"
@@ -55,7 +64,9 @@ def test_reports_are_rate_limited_per_address(client, sql):
         for _ in range(6)
     ]
     assert codes == [201] * 5 + [429]
-    other = client.post("/v1/copyright-reports", json=VALID, headers={"X-Client-IP": "8.8.8.8"})
+    other = client.post(
+        "/v1/copyright-reports", json=VALID, headers={**TRUSTED, "X-Client-IP": "8.8.8.8"}
+    )
     assert other.status_code == 201
 
 
@@ -67,3 +78,22 @@ def test_users_cannot_read_reports(make_user, client, as_role):
     with as_role("authenticated", user) as conn:
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             conn.execute("select * from public.copyright_reports")
+
+
+def test_a_spoofed_address_header_cannot_dodge_the_limit(client):
+    codes = [
+        client.post(
+            "/v1/copyright-reports", json=VALID, headers={"X-Client-IP": f"10.0.0.{i}"}
+        ).status_code
+        for i in range(7)
+    ]
+    assert codes == [201] * 5 + [429, 429]
+
+
+def test_a_wrong_secret_is_not_trusted(client):
+    headers = {"X-Internal-Secret": "wrong", "X-Client-IP": "1.1.1.1"}
+    codes = [
+        client.post("/v1/copyright-reports", json=VALID, headers=headers).status_code
+        for _ in range(6)
+    ]
+    assert codes == [201] * 5 + [429]

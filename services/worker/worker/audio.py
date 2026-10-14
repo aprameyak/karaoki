@@ -2,6 +2,7 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
+from app.validation import SAFE_INPUT
 
 PEAK_COUNT = 600
 
@@ -20,26 +21,12 @@ def run(cmd: list[str], timeout: int = 900) -> bytes:
     return out.stdout
 
 
-def to_wav(src: Path, dest: Path) -> None:
-    run(
-        [
-            "ffmpeg",
-            "-nostdin",
-            "-y",
-            "-v",
-            "error",
-            "-i",
-            str(src),
-            "-vn",
-            "-ac",
-            "2",
-            "-ar",
-            "44100",
-            "-c:a",
-            "pcm_s16le",
-            str(dest),
-        ]
-    )
+def to_wav(src: Path, dest: Path, max_seconds: int | None = None) -> None:
+    cmd = ["ffmpeg", "-nostdin", "-y", "-v", "error", *SAFE_INPUT, "-i", str(src), "-vn"]
+    if max_seconds:
+        cmd += ["-t", str(max_seconds)]
+    cmd += ["-ac", "2", "-ar", "44100", "-c:a", "pcm_s16le", str(dest)]
+    run(cmd)
 
 
 def to_mp3(src: Path, dest: Path, bitrate: str = "192k") -> None:
@@ -143,8 +130,10 @@ def mix(
             "-y",
             "-v",
             "error",
+            *SAFE_INPUT,
             "-i",
             str(backing),
+            *SAFE_INPUT,
             "-i",
             str(recording),
             "-filter_complex",

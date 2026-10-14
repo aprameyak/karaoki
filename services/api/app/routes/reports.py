@@ -1,10 +1,11 @@
 import re
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from redis import Redis
 
 from app import db, rate_limit
+from app.client_ip import client_source
 from app.deps import get_redis
 
 router = APIRouter(prefix="/v1")
@@ -39,10 +40,12 @@ class CopyrightReport(BaseModel):
 @router.post("/copyright-reports", status_code=201)
 def create_report(
     report: CopyrightReport,
+    request: Request,
     x_client_ip: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
     redis: Redis = Depends(get_redis),
 ):
-    source = (x_client_ip or "unknown")[:64]
+    source = client_source(request, x_client_ip, x_internal_secret)
     rate_limit.hit(redis, f"copyright:{source}", 5, window=3600)
     rate_limit.hit(redis, "copyright:all", 200, window=3600)
     report_id = db.insert_copyright_report(
@@ -72,13 +75,15 @@ class SupportRequest(BaseModel):
 
 @router.post("/support-requests", status_code=201)
 def create_support_request(
-    request: SupportRequest,
+    body: SupportRequest,
+    request: Request,
     x_client_ip: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
     redis: Redis = Depends(get_redis),
 ):
-    source = (x_client_ip or "unknown")[:64]
+    source = client_source(request, x_client_ip, x_internal_secret)
     rate_limit.hit(redis, f"support:{source}", 5, window=3600)
     rate_limit.hit(redis, "support:all", 300, window=3600)
-    request_id = db.insert_support_request(request.name, request.email, request.message)
+    request_id = db.insert_support_request(body.name, body.email, body.message)
     db.record_audit(None, "support.request", "support_request", request_id)
     return {"received": True}

@@ -69,7 +69,9 @@ def test_failure_reports_the_tail_of_the_log(patched, tmp_path):
     source.write_bytes(b"x")
     with pytest.raises(separate.SeparationError) as err:
         separate.run_demucs(source, tmp_path / "out", "m", lambda p: None, lambda: False, 30)
-    assert "out of memory" in str(err.value)
+    assert "out of memory" not in str(err.value)
+    assert "could not be separated" in str(err.value)
+    assert "out of memory" in err.value.detail
 
 
 def test_missing_outputs_are_an_error(patched, tmp_path):

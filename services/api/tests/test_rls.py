@@ -48,8 +48,8 @@ def test_user_cannot_edit_someone_elses_song(make_user, make_song, as_role):
     with as_role("authenticated", a) as conn:
         cur = conn.execute("update public.songs set title = 'Hacked' where id = %s", (song,))
         assert cur.rowcount == 0
-    with as_role("authenticated", a) as conn:
-        assert conn.execute("delete from public.songs where id = %s", (song,)).rowcount == 0
+    with as_role("authenticated", a) as conn, pytest.raises(psycopg.errors.InsufficientPrivilege):
+        conn.execute("delete from public.songs where id = %s", (song,))
 
 
 def test_user_can_rename_and_favorite_own_song(make_user, make_song, as_role):
@@ -169,23 +169,23 @@ def test_deleting_user_removes_their_data(make_user, make_song, sql):
     assert sql("select count(*) as n from public.profiles where id = %s", (a,))[0]["n"] == 0
 
 
-def test_storage_policies_limit_users_to_their_own_folder(make_user, as_role, sql):
+def test_storage_policies_limit_users_to_their_own_folder(make_user, make_song, as_role, sql):
     a, b = make_user(), make_user()
+    mine, theirs = make_song(a, status="uploading"), make_song(b, status="uploading")
     sql(
         "insert into storage.objects (bucket_id, name) values ('originals', %s)",
-        (f"{b}/song/original.mp3",),
+        (f"{b}/{theirs}/original.mp3",),
     )
     with as_role("authenticated", a) as conn:
         conn.execute(
             "insert into storage.objects (bucket_id, name) values ('originals', %s)",
-            (f"{a}/song/original.mp3",),
+            (f"{a}/{mine}/original.mp3",),
         )
-    with as_role("authenticated", a) as conn:
-        with pytest.raises(psycopg.errors.InsufficientPrivilege):
-            conn.execute(
-                "insert into storage.objects (bucket_id, name) values ('originals', %s)",
-                (f"{b}/song/evil.mp3",),
-            )
+    with as_role("authenticated", a) as conn, pytest.raises(psycopg.errors.InsufficientPrivilege):
+        conn.execute(
+            "insert into storage.objects (bucket_id, name) values ('originals', %s)",
+            (f"{b}/{theirs}/original.wav",),
+        )
     with as_role("authenticated", a) as conn:
         names = {
             r["name"]
@@ -197,7 +197,7 @@ def test_storage_policies_limit_users_to_their_own_folder(make_user, as_role, sq
     with as_role("authenticated", a) as conn:
         conn.execute(
             "insert into storage.objects (bucket_id, name) values ('originals', %s)",
-            (f"{a}/song/original.mp3",),
+            (f"{a}/{mine}/original.mp3",),
         )
         names = {
             r["name"]
@@ -205,7 +205,7 @@ def test_storage_policies_limit_users_to_their_own_folder(make_user, as_role, sq
                 "select name from storage.objects where bucket_id = 'originals'"
             ).fetchall()
         }
-    assert names == {f"{a}/song/original.mp3"}
+    assert names == {f"{a}/{mine}/original.mp3"}
 
 
 def test_users_cannot_write_to_the_stems_bucket(make_user, as_role):

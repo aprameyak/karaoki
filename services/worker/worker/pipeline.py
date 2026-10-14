@@ -70,7 +70,16 @@ def run_job(job_id: str, storage: Storage, separator: Separator = run_demucs) ->
 
         db.update_progress(job_id, "preparing", 15)
         prepared = workdir / "input.wav"
-        audio.to_wav(local, prepared)
+        audio.to_wav(local, prepared, plan["max_duration_seconds"] + 1)
+        try:
+            inspect_audio(
+                str(prepared),
+                plan["max_duration_seconds"],
+                settings.probe_timeout_seconds,
+                frozenset({"wav"}),
+            )
+        except ApiError as exc:
+            raise JobFailure(exc.message) from exc
         check_active(job_id)
 
         last_reported = {"value": -1}

@@ -137,3 +137,15 @@ def test_finished_or_unknown_exports_are_ignored(ready_song, storage, sql):
         sql("select status from public.audio_exports where id = %s", (export,))[0]["status"]
         == "failed"
     )
+
+
+def test_decoding_is_capped(tmp_path):
+    from worker import audio
+
+    source = make_tone(tmp_path / "long.mp3", 440, 12, MP3)
+    capped = tmp_path / "capped.wav"
+    audio.to_wav(source, capped, 3)
+    assert 2.8 < len(decode(capped)) / 22050 < 3.3
+    full = tmp_path / "full.wav"
+    audio.to_wav(source, full)
+    assert len(decode(full)) / 22050 > 11

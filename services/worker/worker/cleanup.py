@@ -1,6 +1,8 @@
 import argparse
 import logging
+import shutil
 import time
+from pathlib import Path
 
 from app import db, logs
 from app.config import get_settings
@@ -8,15 +10,60 @@ from app.storage import Storage, build_storage
 
 log = logging.getLogger("karaoki.cleanup")
 
-STUCK_MINUTES = 30
 
-
-def reap_stuck_jobs(minutes: int = STUCK_MINUTES) -> int:
+def reap_stuck_jobs(processing_minutes: int | None = None, queued_hours: int | None = None) -> int:
+    settings = get_settings()
     count = 0
-    for job in db.stuck_jobs(minutes):
+    for job in db.stuck_jobs(
+        processing_minutes or settings.stuck_processing_minutes,
+        queued_hours or settings.stuck_queued_hours,
+    ):
         db.finish_job(str(job["id"]), "failed", "The worker stopped before finishing this job")
         count += 1
     return count
+
+
+def reap_stuck_exports(minutes: int | None = None) -> int:
+    count = 0
+    for row in db.stuck_exports(minutes or get_settings().stuck_processing_minutes):
+        db.finish_export(str(row["id"]), "failed", "The export did not finish. Please try again.")
+        count += 1
+    return count
+
+
+def reap_stuck_recordings(minutes: int | None = None) -> int:
+    count = 0
+    for row in db.stuck_recordings(minutes or get_settings().stuck_processing_minutes):
+        db.finish_recording(str(row["id"]), "failed", "The mix did not finish. Please mix again.")
+        count += 1
+    return count
+
+
+def remove_orphan_objects(storage: Storage, hours: int) -> int:
+    removed = 0
+    by_bucket: dict[str, list[str]] = {}
+    for row in db.orphan_objects(hours):
+        by_bucket.setdefault(row["bucket"], []).append(row["path"])
+    for bucket, paths in by_bucket.items():
+        try:
+            storage.remove(bucket, paths)
+            removed += len(paths)
+        except Exception:
+            log.exception("could not remove orphaned objects", extra={"fields": {"bucket": bucket}})
+    return removed
+
+
+def sweep_temp(hours: int = 1) -> int:
+    root = Path(get_settings().temp_dir)
+    if not root.exists():
+        return 0
+    cutoff = time.time() - hours * 3600
+    removed = 0
+    for entry in root.iterdir():
+        if entry.is_dir() and entry.stat().st_mtime < cutoff:
+            shutil.rmtree(entry, ignore_errors=True)
+            removed += 1
+    return removed
 
 
 def remove_stale_uploads(storage: Storage, hours: int) -> int:
@@ -55,6 +102,10 @@ def run_once(storage: Storage | None = None) -> dict:
     storage = storage or build_storage()
     result = {
         "stuck_jobs": reap_stuck_jobs(),
+        "stuck_exports": reap_stuck_exports(),
+        "stuck_recordings": reap_stuck_recordings(),
+        "orphan_objects": remove_orphan_objects(storage, settings.stale_upload_hours),
+        "temp_dirs": sweep_temp(),
         "stale_uploads": remove_stale_uploads(storage, settings.stale_upload_hours),
         "stale_previews": remove_stale_previews(storage, settings.preview_retention_hours),
         "audit_events": db.prune_audit_events(settings.audit_retention_days),

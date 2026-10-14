@@ -12,6 +12,11 @@ DOMAIN_STATUS = {
     "job_in_progress": (409, "This song is already being processed"),
     "song_not_found": (404, "Song not found"),
     "profile_not_found": (404, "Account not found"),
+    "already_processed": (409, "This song has already been processed"),
+    "too_many_exports": (429, "Wait for your current exports to finish"),
+    "too_many_previews": (429, "You have made a lot of previews, try again in a little while"),
+    "too_many_takes": (409, "Delete an older take before saving another"),
+    "already_registered": (409, "That recording was already saved"),
 }
 
 

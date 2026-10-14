@@ -132,7 +132,6 @@ def test_support_requests_can_be_submitted_by_anyone(client, sql):
     ok = client.post(
         "/v1/support-requests",
         json={"name": "Sam", "email": "Sam@Example.com", "message": "I cannot upload my song"},
-        headers={"X-Client-IP": "1.1.1.1"},
     )
     assert ok.status_code == 201
     row = sql("select * from public.support_requests")[0]

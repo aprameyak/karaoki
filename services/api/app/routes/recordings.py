@@ -6,18 +6,17 @@ from pydantic import BaseModel, ConfigDict, Field
 from redis import Redis
 from rq import Queue
 
-from app import db, rate_limit
+from app import db, rate_limit, service
 from app.auth import current_user
 from app.config import get_settings
 from app.deps import get_redis, get_storage, parse_uuid
-from app.errors import ApiError
+from app.errors import ApiError, DomainError
 from app.storage import Storage
 from app.validation import RECORDING_FORMATS, inspect_audio
 
 router = APIRouter(prefix="/v1")
 
 MIX_TASK = "worker.tasks.process_mix"
-MAX_TAKES_PER_SONG = 20
 TAKE_PATH = re.compile(r"^[0-9a-f-]{36}/[0-9a-f-]{36}/[A-Za-z0-9_-]{1,64}\.(webm|ogg|m4a|mp4|wav)$")
 
 
@@ -67,8 +66,6 @@ def create_recording(
 
     if not TAKE_PATH.match(body.path) or not body.path.startswith(f"{user_id}/{song_id}/"):
         raise ApiError(400, "invalid_path", "That recording location is not valid")
-    if db.recording_count(song_id) >= MAX_TAKES_PER_SONG:
-        raise ApiError(409, "too_many_takes", "Delete an older take before saving another")
 
     size = storage.object_size("recordings", body.path)
     if size is None:
@@ -93,20 +90,25 @@ def create_recording(
             storage.remove("recordings", [body.path])
         raise
 
-    file_id = db.insert_audio_file(
-        song_id,
-        user_id,
-        "recording",
-        "recordings",
-        body.path,
-        probe.format,
-        size,
-        probe.duration,
-        probe.sample_rate,
-    )
-    recording_id = db.create_recording(
-        user_id, song_id, file_id, body.title, body.offset_ms, body.vocal_gain, body.backing_gain
-    )
+    try:
+        recording_id = db.register_take(
+            user_id,
+            song_id,
+            body.path,
+            probe.format,
+            size,
+            probe.duration,
+            probe.sample_rate,
+            body.title,
+            body.offset_ms,
+            body.vocal_gain,
+            body.backing_gain,
+            settings.max_takes_per_song,
+        )
+    except DomainError as exc:
+        if exc.code == "too_many_takes":
+            storage.remove("recordings", [body.path])
+        raise service.to_api_error(exc) from exc
     enqueue_mix(redis, recording_id)
     return {"recording": jsonable_encoder(db.get_recording(recording_id))}
 
@@ -129,9 +131,8 @@ def remix(
     if recording["status"] == "mixing":
         raise ApiError(409, "mix_running", "Wait for the current mix to finish")
     rate_limit.hit(redis, f"record:{user['id']}", get_settings().rate_limit_per_minute)
-    db.update_recording_settings(
-        str(recording["id"]), body.offset_ms, body.vocal_gain, body.backing_gain
-    )
+    if not db.begin_remix(str(recording["id"]), body.offset_ms, body.vocal_gain, body.backing_gain):
+        raise ApiError(409, "mix_running", "Wait for the current mix to finish")
     enqueue_mix(redis, str(recording["id"]))
     return {"recording": jsonable_encoder(db.get_recording(str(recording["id"])))}
 
