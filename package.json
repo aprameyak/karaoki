@@ -1,0 +1,17 @@
+{
+  "name": "karaoki",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @karaoki/web",
+    "build": "npm run build -w @karaoki/web",
+    "lint": "npm run lint -w @karaoki/web",
+    "typecheck": "npm run typecheck -w @karaoki/web",
+    "test": "npm run test -w @karaoki/web",
+    "test:e2e": "npm run test:e2e -w @karaoki/web"
+  }
+}
