@@ -5,9 +5,9 @@ description = "Karaoki background worker"
 requires-python = ">=3.12,<3.14"
 dependencies = [
   "karaoki-api",
-  "demucs>=4.0.1",
-  "torch==2.8.0",
-  "torchaudio==2.8.0",
+  "demucs>=4.1.0",
+  "torch==2.15.0",
+  "torchaudio==2.11.1",
   "numpy>=1.26,<2.4",
 ]
 
@@ -17,6 +17,9 @@ dev = [
   "respx>=0.21",
   "ruff>=0.5",
 ]
+
+[tool.uv]
+environments = ["sys_platform != 'darwin' or platform_machine != 'x86_64'"]
 
 [tool.uv.sources]
 karaoki-api = { path = "../api", editable = true }
