@@ -182,15 +182,6 @@ What the tests cover: web component behavior (polling, uploads, the recorder's m
 
 What they don't cover: a full run against a real Supabase project (sign in, signed uploads, storage), the browser microphone recorder, and the Docker images. I could not run those here, and the CI workflow in `.github/workflows` has not been run.
 
-## Deploying
-
-- **Web:** Vercel. Set the `NEXT_PUBLIC_*` variables and `API_URL`.
-- **Database, auth, storage:** a Supabase project. Run the migrations in `supabase/migrations` with `supabase db push`.
-- **API, worker, Redis:** anywhere that runs containers. `docker-compose.yml` shows how they connect. The worker is the only part that needs real compute, so put it on a GPU host if you can.
-- Make sure the worker and API can reach Supabase, and that Redis isn't open to the internet.
-
-There's a longer checklist in [docs/deployment.md](docs/deployment.md).
-
 ## Security notes
 
 - Uploads, stems and recordings are in private buckets and only reachable through signed links.
